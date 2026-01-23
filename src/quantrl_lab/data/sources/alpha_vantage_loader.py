@@ -14,7 +14,7 @@ from quantrl_lab.data.interface import (
     MacroDataCapable,
     NewsDataCapable,
 )
-from quantrl_lab.data.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
+from quantrl_lab.data.processors.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
 from quantrl_lab.utils.common import convert_datetime_to_alpha_vantage_format
 from quantrl_lab.utils.config import (
     ALPHA_VANTAGE_API_BASE,
@@ -76,29 +76,30 @@ class AlphaVantageDataLoader(
         return []
 
     # Historical Data Method #
+    # Historical Data Method #
     def get_historical_ohlcv_data(
         self,
         symbols: str,
-        interval: str = "1d",
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
+        start: Optional[Union[str, datetime]] = None,
+        end: Optional[Union[str, datetime]] = None,
+        timeframe: str = "1d",
         **kwargs,
     ) -> pd.DataFrame:
         """
         Get historical OHLCV data from Alpha Vantage.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            interval: Time interval - "1d" for daily, or intraday intervals like "1min", "5min",
+            symbols: Stock symbol to fetch data for
+            start: Optional start date for filtering. If None, no start filtering is applied.
+            end: Optional end date for filtering. If None, no end filtering is applied.
+            timeframe: Time interval - "1d" for daily, or intraday intervals like "1min", "5min",
             "15min", "30min", "60min"
-            start_date: Optional start date for filtering. If None, no start filtering is applied.
-            end_date: Optional end date for filtering. If None, no end filtering is applied.
             **kwargs: Additional parameters including:
                      - 'adjusted' (bool, default=False): For daily data only
                      - 'outputsize' (str): "compact" or "full"
                      - 'month' (str): For intraday data, specify "YYYY-MM" for historical month
 
-        For daily data: If start_date/end_date are None, defaults to outputsize='full'
+        For daily data: If start/end are None, defaults to outputsize='full'
         For intraday data: If 'month' is not specified, returns recent data (typically last 15-30 days)
 
         Returns:
@@ -111,13 +112,13 @@ class AlphaVantageDataLoader(
         parsed_start_date = None
         parsed_end_date = None
 
-        if start_date is not None:
-            parsed_start_date = pd.to_datetime(start_date) if isinstance(start_date, str) else start_date
-        if end_date is not None:
-            parsed_end_date = pd.to_datetime(end_date) if isinstance(end_date, str) else end_date
+        if start is not None:
+            parsed_start_date = pd.to_datetime(start) if isinstance(start, str) else start
+        if end is not None:
+            parsed_end_date = pd.to_datetime(end) if isinstance(end, str) else end
 
         # Log what we're fetching
-        log_msg = f"Fetching {interval} data for {symbols}"
+        log_msg = f"Fetching {timeframe} data for {symbols}"
         if parsed_start_date or parsed_end_date:
             if parsed_start_date and parsed_end_date:
                 log_msg += f" from {parsed_start_date.date()} to {parsed_end_date.date()}"
@@ -129,8 +130,8 @@ class AlphaVantageDataLoader(
             log_msg += " (all available data for given parameters)"
         logger.info(log_msg)
 
-        # Determine which API endpoint to use based on interval
-        if interval == "1d":
+        # Determine which API endpoint to use based on timeframe
+        if timeframe == "1d":
             # For daily data, default to full if no date filtering
             if not parsed_start_date and not parsed_end_date and "outputsize" not in kwargs:
                 kwargs["outputsize"] = "full"
@@ -145,24 +146,24 @@ class AlphaVantageDataLoader(
 
             time_series_key = "Time Series (Daily)"
 
-        elif interval in ["1min", "5min", "15min", "30min", "60min"]:
+        elif timeframe in ["1min", "5min", "15min", "30min", "60min"]:
             if adjusted:
                 logger.warning("Adjusted prices not available for intraday data, using raw prices")
 
             # Log info about intraday data fetching
             if "month" in kwargs:
-                logger.info(f"Fetching {interval} intraday data for {symbols} for month: {kwargs['month']}")
+                logger.info(f"Fetching {timeframe} intraday data for {symbols} for month: {kwargs['month']}")
             else:
                 logger.info(
-                    f"Fetching {interval} intraday data for {symbols} (recent data - typically last 15-30 days)"
+                    f"Fetching {timeframe} intraday data for {symbols} (recent data - typically last 15-30 days)"
                 )
                 logger.debug("For historical intraday data, specify 'month=\"YYYY-MM\"' in kwargs")
 
-            raw_data = self._get_intraday_data(symbols, interval=interval, **kwargs)
-            time_series_key = f"Time Series ({interval})"
+            raw_data = self._get_intraday_data(symbols, interval=timeframe, **kwargs)
+            time_series_key = f"Time Series ({timeframe})"
         else:
             raise ValueError(
-                f"Unsupported interval: {interval}. Use '1d' or intraday intervals like",
+                f"Unsupported timeframe: {timeframe}. Use '1d' or intraday intervals like",
                 "'1min', '5min', '15min', '30min', '60min'",
             )
 
@@ -190,7 +191,7 @@ class AlphaVantageDataLoader(
         df = pd.DataFrame.from_dict(time_series, orient="index")
 
         # Get the appropriate column mapping and rename columns
-        column_mapping = ALPHA_VANTAGE_COLUMN_MAPPER.get_mapping(interval, adjusted)
+        column_mapping = ALPHA_VANTAGE_COLUMN_MAPPER.get_mapping(timeframe, adjusted)
         df = df.rename(columns=column_mapping)
 
         # Drop any columns that weren't in our mapping
@@ -231,8 +232,8 @@ class AlphaVantageDataLoader(
         else:
             data_type = (
                 "adjusted daily"
-                if (interval == "1d" and adjusted)
-                else (f"{interval} intraday" if interval != "1d" else "daily")
+                if (timeframe == "1d" and adjusted)
+                else (f"{timeframe} intraday" if timeframe != "1d" else "daily")
             )
             logger.success(f"Retrieved {len(df)} {data_type} records for {symbols}")
 

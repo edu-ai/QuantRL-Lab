@@ -3,9 +3,9 @@ from typing import List, Optional, Union
 
 import pandas as pd
 
-from quantrl_lab.data.loaders.alpaca_loader import AlpacaDataLoader
-from quantrl_lab.data.loaders.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
-from quantrl_lab.data.loaders.yfinance_loader import YfinanceDataloader  # noqa: F401
+from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
+from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
+from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader  # noqa: F401
 
 
 class DataSourceRegistry:
@@ -70,27 +70,14 @@ class DataSourceRegistry:
         """
 
         # Use primary source to fetch historical data
-        # Handle different parameter naming conventions for different data sources
-        primary_source_class = type(self.primary_source).__name__
-
-        if primary_source_class == "AlphaVantageDataLoader":
-            # Alpha Vantage uses start_date, end_date, interval
-            return self.primary_source.get_historical_ohlcv_data(
-                symbols=symbols,
-                start_date=start,
-                end_date=end,
-                interval=timeframe,
-                **kwargs,
-            )
-        else:
-            # Alpaca and other sources use start, end, timeframe
-            return self.primary_source.get_historical_ohlcv_data(
-                symbols=symbols,
-                start=start,
-                end=end,
-                timeframe=timeframe,
-                **kwargs,
-            )
+        # All loaders now use the standard signature
+        return self.primary_source.get_historical_ohlcv_data(
+            symbols=symbols,
+            start=start,
+            end=end,
+            timeframe=timeframe,
+            **kwargs,
+        )
 
     def get_news_data(
         self,

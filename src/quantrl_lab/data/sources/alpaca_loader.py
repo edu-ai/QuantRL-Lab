@@ -24,7 +24,7 @@ from quantrl_lab.data.interface import (
     NewsDataCapable,
     StreamingCapable,
 )
-from quantrl_lab.data.mappings import ALPACA_MAPPINGS
+from quantrl_lab.data.processors.mappings import ALPACA_MAPPINGS
 
 
 class AlpacaDataLoader(
