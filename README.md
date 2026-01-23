@@ -9,9 +9,33 @@ A Python testbed for Reinforcement Learning in finance, designed to enable resea
 
 ## Installation
 
+### Quick Start (Core Dependencies Only)
+
 ```bash
+# Using pip
 pip install quantrl-lab
+
+# Using uv (recommended - much faster)
+uv pip install quantrl-lab
 ```
+
+This installs only essential runtime dependencies (~72 packages). For additional features:
+
+```bash
+# Jupyter notebook support
+pip install quantrl-lab[notebooks]
+
+# ML/LLM features (torch, transformers, litellm, openai)
+pip install quantrl-lab[ml]
+
+# Development tools (pytest, black, mypy, etc.)
+pip install quantrl-lab[dev]
+
+# Everything
+pip install quantrl-lab[full]
+```
+
+**For contributors**: See [MIGRATION.md](MIGRATION.md) for complete uv workflow and development setup.
 
 ## Table of Contents
 - [Installation](#installation)
@@ -1122,3 +1146,18 @@ We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) to get s
 ---
 
 ### Literature Review
+
+```mermaid
+graph TD
+    subgraph Monolithic Framework
+        A[Action Space]
+        B[Observable Space]
+        C[Reward Functions]
+        D[Env Attributes]
+    end
+
+    A --- B
+    A --- C
+    B --- D
+    C --- D
+```
