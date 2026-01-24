@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-import torch
 from rich.console import Console
-from transformers import pipeline
 
 from quantrl_lab.data.indicators.registry import IndicatorRegistry
+
+if TYPE_CHECKING:
+    from transformers import Pipeline
 from quantrl_lab.data.indicators.technical import *  # noqa: F401, F403
 
 console = Console()
@@ -79,11 +80,18 @@ class DataProcessor:
 
         self._sentiment_pipeline = None
 
-    def _get_sentiment_pipeline(self):
+    def _get_sentiment_pipeline(self) -> "Pipeline":
         """Lazy initialization of sentiment analysis pipeline."""
         if self._sentiment_pipeline is None:
             try:
+                import torch
+                from transformers import pipeline
+            except ImportError as e:
+                raise ImportError(
+                    "Sentiment analysis requires 'transformers' and 'torch'. " "Install them with: uv sync --extra ml"
+                ) from e
 
+            try:
                 # Use GPU if available and device is set to 0
                 device = 0 if torch.cuda.is_available() and self.sentiment_config.device == 0 else -1
 
