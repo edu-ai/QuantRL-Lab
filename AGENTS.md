@@ -27,16 +27,26 @@ uv add --group dev package-name
 ### Testing
 ```bash
 # Run all tests
-pytest
+uv run pytest
+
+# Run by module
+uv run pytest tests/data/
+uv run pytest tests/environments/stock/
 
 # Run specific test file
-pytest tests/test_env.py
+uv run pytest tests/data/test_indicators.py
 
 # Run with coverage
-pytest --cov=quantrl_lab
+uv run pytest --cov=quantrl_lab
 
 # Run tests matching pattern
-pytest -k "test_portfolio"
+uv run pytest -k "test_portfolio"
+
+# Skip integration tests (for CI/CD - no API keys)
+uv run pytest -m "not integration"
+
+# Run only integration tests (requires .env with API keys)
+uv run pytest -m integration
 ```
 
 ### Code Quality (Pre-commit Hooks)
@@ -152,7 +162,7 @@ df = IndicatorRegistry.apply('RSI', df, window=14)
 IndicatorRegistry.list_all()  # ['SMA', 'EMA', 'RSI', 'MACD', ...]
 ```
 
-**Key file:** `src/quantrl_lab/data/indicators/indicator_registry.py`
+**Key file:** `src/quantrl_lab/data/indicators/registry.py`
 
 **4. BacktestRunner Workflow**
 
@@ -188,7 +198,7 @@ results = runner.run_comprehensive_backtest(
 )
 ```
 
-**Entry point:** `src/quantrl_lab/research/backtesting/runner.py`
+**Entry point:** `src/quantrl_lab/experiments/backtesting/runner.py`
 
 ### Project Structure
 
@@ -211,9 +221,9 @@ src/quantrl_lab/
 │
 ├── data/                     # Data acquisition & processing
 │   ├── sources/             # Data source loaders (renamed from loaders/)
-│   │   ├── alpaca_loader.py
-│   │   ├── yfinance_loader.py
-│   │   └── alpha_vantage_loader.py
+│   │   ├── alpaca.py
+│   │   ├── yfinance.py
+│   │   └── alpha_vantage.py
 │   │
 │   ├── processors/          # Data transformation (NEW - separated from sources)
 │   │   ├── processor.py    # DataProcessor (was data_processor.py)
@@ -221,7 +231,7 @@ src/quantrl_lab/
 │   │
 │   └── indicators/          # Technical indicator registry + implementations
 │
-├── research/                # Offline experimentation (NEW top-level grouping)
+├── experiments/            # Offline experimentation (NEW top-level grouping)
 │   ├── backtesting/        # Training & evaluation orchestration (moved from top-level)
 │   │   ├── runner.py       # Main entry point
 │   │   ├── training.py     # Model training logic
@@ -234,13 +244,37 @@ src/quantrl_lab/
 │   │
 │   └── tuning/             # Optuna hyperparameter optimization (moved from top-level)
 │
+├── experiments/            # Offline experimentation (NEW top-level grouping)
+│   ├── backtesting/        # Training & evaluation orchestration (moved from top-level)
+│   │   ├── runner.py       # Main entry point
+│   │   ├── training.py     # Model training logic
+│   │   ├── evaluation.py   # Performance metrics
+│   │   └── config/         # Algorithm configs & presets
+│   │
+│   ├── feature_engineering/  # Vectorized backtesting (renamed from feature_selection/)
+│   │   ├── analyzer.py     # Indicator analysis
+│   │   └── vectorized/     # Vectorized strategy implementations
+│   │
+│   ├── tuning/             # Optuna hyperparameter optimization (moved from top-level)
+│   │
+│   └── screening/          # LLM-based hedge pair screening (for pair discovery)
+│       ├── llm_hedge_screener.py
+│       ├── response_schemas.py
+│       ├── data_models.py
+│       └── prompt.py
+│
 ├── deployment/             # Production workflows (NEW top-level grouping)
-│   ├── trading/           # Live trading with Alpaca (moved from top-level)
-│   └── screening/         # LLM-based hedge pair screening (renamed from screener/)
+│   └── trading/           # Live trading with Alpaca (moved from top-level)
 │
 └── utils/                 # Shared utilities
 
-tests/                     # Pytest test suite
+tests/                     # Pytest test suite (mirrors src/ structure)
+│   ├── data/             # Data module tests
+│   │   ├── test_indicators.py
+│   │   ├── test_data_sources.py
+│   │   └── test_data_sources_integration.py
+│   └── environments/stock/  # Environment tests
+│
 notebooks/                 # Usage examples
 ```
 
@@ -248,7 +282,7 @@ notebooks/                 # Usage examples
 
 ### Adding a New Technical Indicator
 
-1. Add function to `src/quantrl_lab/data/indicators/technical_indicators.py`
+1. Add function to `src/quantrl_lab/data/indicators/technical.py`
 2. Decorate with `@IndicatorRegistry.register('INDICATOR_NAME')`
 3. Function signature: `def indicator_name(df: pd.DataFrame, **kwargs) -> pd.DataFrame`
 4. It's auto-discoverable via `IndicatorRegistry.list_all()`
@@ -310,14 +344,20 @@ reward_strategy = WeightedCompositeReward(
 ```
 
 **Presets available:** "conservative", "explorative", "balanced", "risk_managed"
-(see `src/quantrl_lab/research/backtesting/config/reward_presets.py`)
+(see `src/quantrl_lab/experiments/backtesting/config/reward_presets.py`)
 
 ### Data Source Capabilities
 
 **Not all data sources support all features:**
 - Alpaca: Historical, Live, Streaming, News (requires API keys)
 - YFinance: Historical, Fundamentals (free, no key needed)
-- AlphaVantage: Historical, Macroeconomic (requires free API key)
+- AlphaVantage: Historical, Fundamentals, Macroeconomic, News (requires API key)
+
+**Alpha Vantage Free Tier Limitations:**
+- 25 requests/day, 1 request/second burst limit
+- `outputsize=full` (20+ years of data) requires premium
+- Intraday data (1min, 5min, etc.) requires premium
+- The loader auto-handles rate limiting and defaults to `compact` (last 100 days)
 
 **Check capabilities before use:**
 ```python
@@ -335,7 +375,8 @@ ALPACA_API_KEY=your_key
 ALPACA_SECRET_KEY=your_secret
 ALPACA_BASE_URL=https://paper-api.alpaca.markets  # Paper trading
 
-# Alpha Vantage (for alternative data)
+# Alpha Vantage (for fundamentals, macro data, news)
+# Free tier: 25 req/day, intraday & outputsize=full require premium
 ALPHA_VANTAGE_API_KEY=your_key
 
 # Optional: LLM APIs for hedge screener
@@ -344,15 +385,30 @@ OPENAI_API_KEY=your_key
 
 ## Testing Strategy
 
-**Test coverage areas:**
-- `tests/test_env.py` - Environment step logic, terminal conditions
-- `tests/test_portfolio.py` - Position tracking, cash flow
-- `tests/test_reward.py` - Reward calculation correctness
+**Test structure mirrors source code:**
+```
+tests/
+├── conftest.py                              # Shared fixtures
+├── data/
+│   ├── test_indicators.py                   # IndicatorRegistry & technical indicators
+│   ├── test_data_sources.py                 # Unit tests with mocked APIs
+│   └── test_data_sources_integration.py     # Integration tests with real APIs
+└── environments/stock/
+    ├── test_env.py                          # Environment step logic, terminal conditions
+    ├── test_portfolio.py                    # Position tracking, cash flow
+    ├── test_action.py                       # Action strategy validation
+    └── test_reward.py                       # Reward calculation correctness
+```
+
+**Test categories:**
+- **Unit tests** - Fast, mocked, run in CI/CD
+- **Integration tests** - Real API calls, require `.env`, marked with `@pytest.mark.integration`
 
 **Run before commits:**
 ```bash
-pre-commit run --all-files  # Formatting + linting
-pytest                      # Test suite
+pre-commit run --all-files       # Formatting + linting
+uv run pytest -m "not integration"  # Unit tests only
+uv run pytest                    # All tests (if API keys available)
 ```
 
 ## Key Files to Check First
@@ -362,7 +418,7 @@ pytest                      # Test suite
 - Reward logic → `src/quantrl_lab/environments/stock/strategies/rewards/`
 - Data loading → `src/quantrl_lab/data/sources/`
 - Feature engineering → `src/quantrl_lab/data/processors/processor.py`
-- Backtesting flow → `src/quantrl_lab/research/backtesting/runner.py`
+- Backtesting flow → `src/quantrl_lab/experiments/backtesting/runner.py`
 
 **When debugging:**
 - Check `StockPortfolio` state in `src/quantrl_lab/environments/stock/stock_portfolio.py`
