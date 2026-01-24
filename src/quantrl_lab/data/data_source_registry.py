@@ -1,8 +1,9 @@
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
+from quantrl_lab.data.interface import HistoricalDataCapable, NewsDataCapable
 from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
 from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader  # noqa: F401
@@ -22,7 +23,7 @@ class DataSourceRegistry:
         # "sector_performance_source": FMPDataLoader,
     }
 
-    def __init__(self, sources=None, **kwargs):
+    def __init__(self, sources: Optional[Dict[str, type]] = None, **kwargs) -> None:
         """
         Initialize with configured data sources.
 
@@ -67,10 +68,17 @@ class DataSourceRegistry:
 
         Returns:
             pd.DataFrame: Historical OHLCV data.
+
+        Raises:
+            RuntimeError: If primary_source doesn't implement HistoricalDataCapable protocol.
         """
+        if not isinstance(self.primary_source, HistoricalDataCapable):
+            raise RuntimeError(
+                f"{self.primary_source.__class__.__name__} doesn't support historical data. "
+                f"Please configure a data source that implements HistoricalDataCapable."
+            )
 
         # Use primary source to fetch historical data
-        # All loaders now use the standard signature
         return self.primary_source.get_historical_ohlcv_data(
             symbols=symbols,
             start=start,
@@ -97,6 +105,14 @@ class DataSourceRegistry:
 
         Returns:
             pd.DataFrame: raw news data
+
+        Raises:
+            RuntimeError: If news_source doesn't implement NewsDataCapable protocol.
         """
+        if not isinstance(self.news_source, NewsDataCapable):
+            raise RuntimeError(
+                f"{self.news_source.__class__.__name__} doesn't support news data. "
+                f"Please configure a data source that implements NewsDataCapable."
+            )
 
         return self.news_source.get_news_data(symbols=symbols, start=start, end=end, **kwargs)

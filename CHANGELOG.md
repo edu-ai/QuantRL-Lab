@@ -8,22 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add new features here as you develop them
+- **AGENTS.md**: Comprehensive guide for AI assistants working with the codebase
+  - Architecture patterns (protocol-based design, registry pattern, strategy injection)
+  - Common workflows and development gotchas
+  - Essential commands for uv, testing, and notebooks
+- **Protocol-based data interface improvements**:
+  - Standardized return type to `pd.DataFrame` for `NewsDataCapable`, `FundamentalDataCapable`, and `MacroDataCapable` protocols
+  - Runtime capability checks with `isinstance()` for better error handling
+  - Added defensive checks in `DataSourceRegistry` to validate protocol implementation before method calls
+- **Enhanced type hints**: Added proper type annotations to `DataSourceRegistry.__init__()` for better IDE support
 
 ### Changed
-- Note changes in existing functionality
-
-### Deprecated
-- Note features that will be removed in future versions
-
-### Removed
-- Note removed features
+- **Migrated from Poetry to uv** for faster dependency management
+  - 10-100x faster package resolution and installation
+  - Maintains compatibility with existing `pyproject.toml`
+  - Updated all documentation and CI/CD workflows
+- **Restructured data module**:
+  - Renamed `loaders/` → `sources/` for clarity
+  - Separated data processing logic into dedicated `processors/` submodule
+  - Enhanced data source interface with `DataSource` abstract base class
+  - Improved feature detection via `supported_features` property
+- **Reorganized experiment workflows**:
+  - Grouped offline experiments under `experiments/` (backtesting, feature engineering, tuning)
+  - Separated production code under `deployment/` (trading, screening)
+  - Moved `feature_selection/` → `feature_engineering/` for accuracy
+- **Refined documentation**: Updated README with system architecture diagrams (Mermaid)
+  - Protocol pattern illustration
+  - Registry pattern workflow
+  - Strategy injection design
 
 ### Fixed
-- Note bug fixes
+- Protocol return type consistency for better downstream processing
+- Missing error handling when data sources don't implement required protocols
 
 ### Security
-- Note security fixes
 
 ## [0.1.0] - 2025-10-16
 

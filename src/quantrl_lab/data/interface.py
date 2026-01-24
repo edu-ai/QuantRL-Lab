@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional, Protocol, Union, runtime_checkable
+from typing import List, Optional, Protocol, Union, runtime_checkable
 
 import pandas as pd
 
@@ -158,7 +158,7 @@ class NewsDataCapable(Protocol):
         start: Union[str, datetime],
         end: Optional[Union[str, datetime]] = None,
         **kwargs,
-    ) -> Union[pd.DataFrame, Dict]:
+    ) -> pd.DataFrame:
         """Get news for specified symbols and time range."""
         ...
 
@@ -221,7 +221,7 @@ class FundamentalDataCapable(Protocol):
     - get_fundamental_data
     """
 
-    def get_fundamental_data(self, symbols: str, metrics: List[str], **kwargs) -> Union[pd.DataFrame, Dict]:
+    def get_fundamental_data(self, symbols: str, metrics: List[str], **kwargs) -> pd.DataFrame:
         """Get fundamental data for specified symbols and metrics."""
         ...
 
@@ -240,7 +240,7 @@ class MacroDataCapable(Protocol):
         indicators: Union[str, List[str]],
         start: Union[str, datetime],
         end: Union[str, datetime],
-    ) -> Union[pd.DataFrame, Dict]:
+    ) -> pd.DataFrame:
         """Get macroeconomic data for specified indicators and time
         range."""
         ...
