@@ -1,35 +1,54 @@
-<!-- omit in toc -->
 # QuantRL-Lab
 
 [![PyPI version](https://badge.fury.io/py/quantrl-lab.svg)](https://badge.fury.io/py/quantrl-lab)
 [![Python](https://img.shields.io/pypi/pyversions/quantrl-lab.svg)](https://pypi.org/project/quantrl-lab/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://whanyu1212.github.io/QuantRL-Lab/)
 
-A Python testbed for Reinforcement Learning in finance, designed to enable researchers and developers to experiment with and evaluate RL algorithms in financial contexts. The project emphasizes modularity and configurability, allowing users to tailor the environment, data sources, and algorithmic settings to their specific needs
+A Python testbed for Reinforcement Learning in finance, designed to enable researchers and developers to experiment with and evaluate RL algorithms in financial contexts. The project emphasizes modularity and configurability, allowing users to tailor the environment, data sources, and algorithmic settings to their specific needs.
 
 ## Installation
 
+### Quick Start (Core Dependencies Only)
+
 ```bash
+# Using pip
 pip install quantrl-lab
+
+# Using uv (recommended - much faster)
+uv pip install quantrl-lab
 ```
+
+This installs only essential runtime dependencies (~72 packages). For additional features:
+
+```bash
+# Jupyter notebook support
+pip install quantrl-lab[notebooks]
+
+# ML/LLM features (torch, transformers, litellm, openai)
+pip install quantrl-lab[ml]
+
+# Development tools (pytest, black, mypy, etc.)
+pip install quantrl-lab[dev]
+
+# Everything
+pip install quantrl-lab[full]
+```
+
+**For contributors**: See [MIGRATION.md](MIGRATION.md) for complete uv workflow and development setup.
 
 ## Table of Contents
 - [Installation](#installation)
-- [Table of Contents](#table-of-contents)
-  - [Motivation](#motivation)
-  - [Example usage:](#example-usage)
-  - [Roadmap 🔄](#roadmap-)
-  - [Development Setup](#development-setup)
-    - [For Contributors and Developers](#for-contributors-and-developers)
+- [Motivation](#motivation)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
-  - [How to Contribute](#how-to-contribute)
-  - [Code of Conduct](#code-of-conduct)
 - [Contributors](#contributors)
-  - [Main Contributors](#main-contributors)
-  - [How to Become a Contributor](#how-to-become-a-contributor)
-  - [Literature Review](#literature-review)
 
-### Motivation
+---
+
+## Motivation
 
 **Addressing the Monolithic Environment Problem**
 
@@ -40,66 +59,66 @@ Most existing RL frameworks for finance suffer from tightly coupled, monolithic 
 - **Reduced Reproducibility**: Inconsistent interfaces across different environment configurations make fair comparisons difficult
 - **Development Overhead**: Simple modifications like testing different reward functions or adding new observation features require extensive refactoring
 
+**QuantRL-Lab's Solution**: Dependency injection of pluggable strategies (action/observation/reward) decouples environment logic from algorithmic choices, enabling rapid experimentation without code rewrites.
 
-<u>The framework tries to demonstrate the following workflow:</u>
-1. **Flexible Data Acquisition**: Aggregate market data from multiple heterogeneous sources with unified interfaces
-2. **Feature Engineering**: Systematic selection and analysis of technical indicators (based on vectorized backtesting) for optimal signal generation
-3. **Data Processing**: Enrich datasets with technical indicators and sentiment analysis from news sources
-4. **Environment Configuration**: Define trading environments with customizable parameters (portfolio allocation, transaction costs, slippage, observation windows)
-5. **Algorithm Training & Tuning**: Execute RL algorithm training with preset or configurable hyperparameters
-6. **Performance Evaluation**: Assess model performance and action distribution
-7. **Comparative Analysis**: Generate detailed performance reports
+---
 
-
-```mermaid
-flowchart LR
-    A[Data Acquisition<br/>Multiple Sources] --> B[Data Processing<br/>Technical Indicators & Sentiment]
-    A -.-> C[Feature Engineering<br/>& Selection]
-    C -.-> B
-    B --> D[Environment Configuration<br/>Action/Reward/Observation Strategies]
-    D --> E[Algorithm Training<br/>RL Policy Learning]
-    E -.-> F[Hyperparameter Tuning<br/>Optuna Optimization]
-    F -.-> E
-    E --> G[Performance Evaluation<br/>Metrics & Action Analysis]
-    G --> H[Comparative Analysis<br/>Strategy Reports]
-
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style C fill:#fff3e0
-    style D fill:#e8f5e8
-    style E fill:#fce4ec
-    style F fill:#fff8e1
-    style G fill:#e0f2f1
-    style H fill:#f1f8e9
-
-    classDef optional stroke-dasharray: 5 5
-    class C,F optional
-```
-```mermaid
-graph LR
-    A[Start: Raw OHLCV DataFrame] --> B{Initialize DataProcessor};
-    B --> C[append_technical_indicators];
-    C --> D{News Data Provided?};
-    D -- Yes --> E[append_news_sentiment_data];
-    E --> F[Merge DataFrames];
-    D -- No --> F;
-    F --> G[convert_columns_to_numeric];
-    G --> H[dropna];
-    H --> I{Split Config Provided?};
-    I -- Yes --> J[_split_data];
-    J --> K[Drop Date Column from Splits];
-    K --> L[End: Dictionary of Split DataFrames & Metadata];
-    I -- No --> M[Drop Date Column];
-    M --> N[End: Single Processed DataFrame & Metadata];
-```
+## Quick Start
 ---
 
 
-### Example usage:
+---
+
+## Quick Start
+
+### System Workflow
+
+End-to-end process from data acquisition to model evaluation:
+
+```mermaid
+flowchart TB
+    A[Fetch Historical Data] --> B[Configure Pipeline]
+
+    B --> C[Compute Indicators: RSI, MACD, MAC, BB etc.]
+
+    C --> D[Instantiate Environment with Strategies]
+
+    D --> E[Action Strategy]
+    D --> F[Observation Strategy]
+    D --> G[Reward Strategy]
+
+    E --> H
+    F --> H
+    G --> H
+
+    H[Train RL Agent: PPO/SAC/A2C] --> I[Evaluate vs Benchmarks]
+
+    I --> J[Analyze Results]
+
+    J --> K{Iterate?}
+
+    K -->|Yes| B
+    K -->|No| L[End]
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#f3e5f5
+    style D fill:#e8f5e8
+    style E fill:#e8f5e8
+    style F fill:#e8f5e8
+    style G fill:#e8f5e8
+    style H fill:#fce4ec
+    style I fill:#e0f2f1
+    style J fill:#f1f8e9
+    style K fill:#fce4ec
+    style L fill:#c8e6c9
+```
+
+### Example Usage
 
 ```python
 # Easily swappable strategies for experimentation
-# For in depth example, please refer to the backtesting_example.ipynb
+# For in-depth example, see notebooks/backtesting_example.ipynb
 
 sample_env_config = BacktestRunner.create_env_config_factory(
     train_data=train_data_df,
@@ -118,44 +137,58 @@ runner = BacktestRunner(verbose=1)
 results = runner.run_single_experiment(
     SAC,          # Algorithm to use
     sample_env_config,
-    # config=custom_sac_config,  # an optional input arg
-    total_timesteps=50000,  # Total timesteps for training
+    # config=custom_sac_config,  # optional custom config
+    total_timesteps=50000,
     num_eval_episodes=3
 )
 
 BacktestRunner.inspect_single_experiment(results)
 
-# More combinations
+# Comprehensive sweep across multiple algorithms and presets
 presets = ["default", "explorative", "conservative"]
-
 algorithms = [PPO, A2C, SAC]
 
 comprehensive_results = runner.run_comprehensive_backtest(
     algorithms=algorithms,
     env_configs=env_configs,
     presets=presets,
-    # custom_configs=custom_configs,  # either use presets or customize config by yourself
+    # custom_configs=custom_configs,  # either use presets or customize
     total_timesteps=50000,
     n_envs=4,
     num_eval_episodes=3
 )
 ```
 
-For more detailed use cases, please refer to the notebooks:
+**Detailed tutorials:**
 - Feature and window size selection: [`notebooks/feature_selection.ipynb`](notebooks/feature_selection.ipynb)
 - Data processing example: [`notebooks/data_processing.ipynb`](notebooks/data_processing.ipynb)
 - Backtesting: [`notebooks/backtesting_example.ipynb`](notebooks/backtesting_example.ipynb)
-- Hyperparameter tuning for stablebaseline algo: [`notebooks/hyperparameter_tuning.ipynb`](notebooks/hyperparameter_tuning.ipynb)
-- LLM hedge pair screener (for upcoming multi stock env): [`notebooks/llm_hedge_screener.ipynb`](notebooks/llm_hedge_screener.ipynb)
-
-
+- Hyperparameter tuning: [`notebooks/hyperparameter_tuning.ipynb`](notebooks/hyperparameter_tuning.ipynb)
+- LLM hedge pair screener: [`notebooks/llm_hedge_screener.ipynb`](notebooks/llm_hedge_screener.ipynb)
 
 ---
 
-### Roadmap 🔄
+## Architecture
+
+For detailed architecture documentation, design patterns, and system diagrams, see the [**Architecture Guide**](docs/ARCHITECTURE.md):
+
+- 🔄 **Workflow Overview** - End-to-end experimental loop
+- 🏗️ **High-Level Architecture** - Layered system design (Data/Environment/Experiment/Utilities layers)
+- 🔌 **Strategy Pattern** - How pluggable strategies interact with environments
+- 📊 **Data Flow Pipeline** - Complete transformation from raw sources to RL agent
+- 🧩 **Pre-built Components** - Out-of-the-box action/observation/reward strategies
+- 🔧 **Extensibility Guide** - How to create custom strategies
+- 🔍 **Protocol Pattern** - Structural typing for flexible data sources
+- 📋 **Registry Pattern** - Technical indicator management
+- ⚡ **Reward Strategy Pattern** - Decoupled reward function experimentation
+
+---
+
+## Roadmap
+
 - **Data Source Expansion**:
-  - Complete Integration for more (free) data sources
-  - Add Cryto data support
+  - Complete integration for more (free) data sources
+  - Add crypto data support
   - Add OANDA forex data support
 - **Technical Indicators**:
   - Add more indicators (Ichimoku, Williams %R, CCI, etc.)
@@ -286,3 +319,4 @@ We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) to get s
 ---
 
 ### Literature Review
+placeholder

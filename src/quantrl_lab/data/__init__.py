@@ -1,7 +1,7 @@
-from .data_processor import DataProcessor
-from .data_source_registry import DataSourceRegistry
-from .indicators.indicator_registry import IndicatorRegistry
-from .loaders import AlpacaDataLoader, AlphaVantageDataLoader, YfinanceDataloader
+from .indicators.registry import IndicatorRegistry
+from .processors.processor import DataProcessor
+from .source_registry import DataSourceRegistry
+from .sources import AlpacaDataLoader, AlphaVantageDataLoader, YfinanceDataloader
 
 __all__ = [
     "DataProcessor",
