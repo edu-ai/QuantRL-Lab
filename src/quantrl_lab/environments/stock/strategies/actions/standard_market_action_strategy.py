@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any, Dict, Tuple
 import gymnasium as gym
 import numpy as np
 
-from quantrl_lab.custom_envs.core.actions import Actions
-from quantrl_lab.custom_envs.stock.strategies.actions.base_action import (
+from quantrl_lab.environments.base.actions import Actions
+from quantrl_lab.environments.stock.strategies.actions.base_action import (
     BaseActionStrategy,
 )
 
 if TYPE_CHECKING:  # Solves circular import issues
-    from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 
 class StandardMarketActionStrategy(BaseActionStrategy):

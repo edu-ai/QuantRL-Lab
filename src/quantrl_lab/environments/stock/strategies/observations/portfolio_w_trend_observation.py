@@ -8,7 +8,7 @@ from gymnasium import spaces
 
 # Use TYPE_CHECKING to prevent circular imports
 if TYPE_CHECKING:
-    from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 from quantrl_lab.utils.trend import calculate_trend_strength
 

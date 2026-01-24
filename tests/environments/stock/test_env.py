@@ -1,7 +1,7 @@
 import numpy as np
 from stable_baselines3.common.env_checker import check_env
 
-from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
+from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 
 def test_env_creation(standard_env: TradingEnvProtocol):

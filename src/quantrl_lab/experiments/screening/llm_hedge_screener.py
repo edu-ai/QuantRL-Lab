@@ -5,12 +5,12 @@ from dotenv import load_dotenv
 from litellm import completion
 from loguru import logger
 
-from quantrl_lab.screener.data_models import HedgeScreeningResult
-from quantrl_lab.screener.prompt import (
+from quantrl_lab.experiments.screening.data_models import HedgeScreeningResult
+from quantrl_lab.experiments.screening.prompt import (
     build_hedge_screening_prompts,
     build_structured_hedge_screening_prompts,
 )
-from quantrl_lab.screener.response_schemas import HEDGE_SCREENING_RESPONSE_SCHEMA
+from quantrl_lab.experiments.screening.response_schemas import HEDGE_SCREENING_RESPONSE_SCHEMA
 
 
 class LLMStockScreener:

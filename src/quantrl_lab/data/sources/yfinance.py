@@ -213,7 +213,7 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
                 result = pd.DataFrame()
                 for symbol in symbols:
                     ticker = yf.Ticker(symbol)
-                    data = ticker.history(start=start, end=end, period=timeframe).assign(Symbol=symbol)
+                    data = ticker.history(start=start, end=end, interval=timeframe).assign(Symbol=symbol)
                     result = pd.concat([result, data])
                 return result.reset_index()
             except Exception as e:

@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-from quantrl_lab.custom_envs.stock import SingleStockEnvConfig, SingleStockTradingEnv
-from quantrl_lab.custom_envs.stock.strategies.actions.standard_market_action_strategy import (
+from quantrl_lab.environments.stock import SingleStockEnvConfig, SingleStockTradingEnv
+from quantrl_lab.environments.stock.strategies.actions.standard_market_action_strategy import (
     StandardMarketActionStrategy,
 )
-from quantrl_lab.custom_envs.stock.strategies.observations import (
+from quantrl_lab.environments.stock.strategies.observations import (
     PortfolioWithTrendObservation,
 )
-from quantrl_lab.custom_envs.stock.strategies.rewards import PortfolioValueChangeReward
+from quantrl_lab.environments.stock.strategies.rewards import PortfolioValueChangeReward
 
 
 @pytest.fixture

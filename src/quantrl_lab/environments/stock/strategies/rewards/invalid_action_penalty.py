@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from quantrl_lab.custom_envs.stock.strategies.rewards.base_reward import (
+from quantrl_lab.environments.stock.strategies.rewards.base_reward import (
     BaseRewardStrategy,
 )
 
 if TYPE_CHECKING:
-    from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 
 class InvalidActionPenalty(BaseRewardStrategy):

@@ -5,7 +5,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 
-from quantrl_lab.backtesting.config import get_preset_config
+from quantrl_lab.experiments.backtesting.config import get_preset_config
 
 console = Console()
 

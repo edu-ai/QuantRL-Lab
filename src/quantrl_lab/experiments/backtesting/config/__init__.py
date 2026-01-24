@@ -10,4 +10,4 @@ __all__ = [
     "SACConfig",
     "AlgorithmConfigRegistry",
     "get_preset_config",
-]  # allows you to import * from quantrl_lab.backtesting.config
+]  # allows you to import * from quantrl_lab.experiments.backtesting.config

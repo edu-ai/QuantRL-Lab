@@ -4,16 +4,16 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 
-from quantrl_lab.custom_envs.core.actions import Actions
-from quantrl_lab.custom_envs.stock.stock_config import SingleStockEnvConfig
-from quantrl_lab.custom_envs.stock.stock_portfolio import StockPortfolio
-from quantrl_lab.custom_envs.stock.strategies.actions.base_action import (
+from quantrl_lab.environments.base.actions import Actions
+from quantrl_lab.environments.stock.stock_config import SingleStockEnvConfig
+from quantrl_lab.environments.stock.stock_portfolio import StockPortfolio
+from quantrl_lab.environments.stock.strategies.actions.base_action import (
     BaseActionStrategy,
 )
-from quantrl_lab.custom_envs.stock.strategies.observations.base_observation import (
+from quantrl_lab.environments.stock.strategies.observations.base_observation import (
     BaseObservationStrategy,
 )
-from quantrl_lab.custom_envs.stock.strategies.rewards.base_reward import (
+from quantrl_lab.environments.stock.strategies.rewards.base_reward import (
     BaseRewardStrategy,
 )
 

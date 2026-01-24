@@ -6,8 +6,8 @@ import torch
 from rich.console import Console
 from transformers import pipeline
 
-from quantrl_lab.data.indicators.indicator_registry import IndicatorRegistry
-from quantrl_lab.data.indicators.technical_indicators import *  # noqa: F401, F403
+from quantrl_lab.data.indicators.registry import IndicatorRegistry
+from quantrl_lab.data.indicators.technical import *  # noqa: F401, F403
 
 console = Console()
 

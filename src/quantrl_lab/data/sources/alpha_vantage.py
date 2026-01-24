@@ -37,10 +37,13 @@ class AlphaVantageDataLoader(
         api_key: str = None,
         max_retries: int = 3,
         delay: int = 5,
+        rate_limit_delay: float = 1.2,
     ):
         self.api_key = api_key or os.environ.get("ALPHA_VANTAGE_API_KEY")
         self.max_retries = max_retries
         self.delay = delay
+        self.rate_limit_delay = rate_limit_delay  # Delay between requests (free tier: 1 req/sec)
+        self._last_request_time: float = 0
 
     @property
     def source_name(self) -> str:
@@ -95,12 +98,14 @@ class AlphaVantageDataLoader(
             timeframe: Time interval - "1d" for daily, or intraday intervals like "1min", "5min",
             "15min", "30min", "60min"
             **kwargs: Additional parameters including:
-                     - 'adjusted' (bool, default=False): For daily data only
-                     - 'outputsize' (str): "compact" or "full"
-                     - 'month' (str): For intraday data, specify "YYYY-MM" for historical month
+                     - 'adjusted' (bool, default=False): For daily data only (premium feature)
+                     - 'outputsize' (str): "compact" (default, last 100 points) or "full" (premium)
+                     - 'month' (str): For intraday data, specify "YYYY-MM" for historical month (premium)
 
-        For daily data: If start/end are None, defaults to outputsize='full'
-        For intraday data: If 'month' is not specified, returns recent data (typically last 15-30 days)
+        Note on free tier limitations:
+            - outputsize='full' requires a premium API key
+            - Historical intraday data with 'month' parameter requires premium
+            - Rate limit: 25 requests/day, 1 request/second burst limit
 
         Returns:
             pd.DataFrame: OHLCV data, optionally filtered by date range
@@ -132,10 +137,14 @@ class AlphaVantageDataLoader(
 
         # Determine which API endpoint to use based on timeframe
         if timeframe == "1d":
-            # For daily data, default to full if no date filtering
-            if not parsed_start_date and not parsed_end_date and "outputsize" not in kwargs:
-                kwargs["outputsize"] = "full"
-                logger.debug("Defaulting to outputsize='full' for daily data with no date range specified")
+            # For daily data, default to compact if not specified
+            # Note: outputsize='full' is a premium feature on Alpha Vantage free tier
+            if "outputsize" not in kwargs:
+                kwargs["outputsize"] = "compact"
+                logger.debug(
+                    "Defaulting to outputsize='compact' (last 100 data points). "
+                    "Use outputsize='full' with premium API key for 20+ years of data."
+                )
 
             if adjusted:
                 raw_data = self._get_daily_adjusted_data(symbols, **kwargs)
@@ -627,6 +636,12 @@ class AlphaVantageDataLoader(
         """Centralized private method for making Alpha Vantage API
         requests."""
 
+        # Respect rate limit (free tier: 1 request per second)
+        elapsed = time.time() - self._last_request_time
+        if elapsed < self.rate_limit_delay:
+            sleep_time = self.rate_limit_delay - elapsed
+            time.sleep(sleep_time)
+
         # Build URL parameters
         url_params = {
             "function": function,
@@ -640,6 +655,7 @@ class AlphaVantageDataLoader(
 
         for attempt in range(self.max_retries):
             try:
+                self._last_request_time = time.time()
                 response = requests.get(ALPHA_VANTAGE_API_BASE, params=url_params, timeout=30)
 
                 if response.status_code == 200:
@@ -652,6 +668,11 @@ class AlphaVantageDataLoader(
                             error_msg += f" for {symbol}"
                         logger.error(error_msg)
                         return None
+
+                    # Log Information key content for debugging
+                    if "Information" in data:
+                        logger.warning(f"API Information message: {data['Information']}")
+                        return data
 
                     if "Note" in data and "API call frequency" in data.get("Note", ""):
                         warning_msg = "Rate limit hit"

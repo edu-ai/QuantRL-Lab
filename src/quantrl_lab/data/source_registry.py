@@ -4,9 +4,9 @@ from typing import Dict, List, Optional, Union
 import pandas as pd
 
 from quantrl_lab.data.interface import HistoricalDataCapable, NewsDataCapable
-from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
-from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
-from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader  # noqa: F401
+from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader  # noqa: F401
+from quantrl_lab.data.sources.yfinance import YfinanceDataloader  # noqa: F401
 
 
 class DataSourceRegistry:

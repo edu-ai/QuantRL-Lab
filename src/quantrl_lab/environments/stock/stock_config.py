@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from quantrl_lab.custom_envs.core.config import CoreEnvConfig
+from quantrl_lab.environments.base.config import CoreEnvConfig
 
 
 class SingleStockEnvConfig(CoreEnvConfig):

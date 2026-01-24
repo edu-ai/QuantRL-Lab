@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from quantrl_lab.data.indicators.indicator_registry import IndicatorRegistry
+from quantrl_lab.data.indicators.registry import IndicatorRegistry
 
 
 @IndicatorRegistry.register(name="SMA")

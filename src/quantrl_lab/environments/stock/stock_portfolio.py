@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 
-from quantrl_lab.custom_envs.core.actions import Actions
-from quantrl_lab.custom_envs.core.portfolio import Portfolio
+from quantrl_lab.environments.base.actions import Actions
+from quantrl_lab.environments.base.portfolio import Portfolio
 
 
 class StockPortfolio(Portfolio):

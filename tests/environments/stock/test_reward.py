@@ -1,6 +1,6 @@
-from quantrl_lab.custom_envs.core.actions import Actions
-from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
-from quantrl_lab.custom_envs.stock.strategies.rewards import (  # InvalidActionPenalty,; WeightedCompositeReward,
+from quantrl_lab.environments.base.actions import Actions
+from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+from quantrl_lab.environments.stock.strategies.rewards import (  # InvalidActionPenalty,; WeightedCompositeReward,
     PortfolioValueChangeReward,
 )
 

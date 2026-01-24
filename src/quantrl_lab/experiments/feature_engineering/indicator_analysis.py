@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from ..data.indicators.indicator_registry import IndicatorRegistry
+from quantrl_lab.data.indicators.registry import IndicatorRegistry
+
 from .base_vectorized_strategy import SignalType
 from .vectorized_strategy_factory import VectorizedStrategyFactory
 

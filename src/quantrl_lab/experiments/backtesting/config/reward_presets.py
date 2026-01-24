@@ -1,13 +1,13 @@
 from itertools import combinations
 
-from quantrl_lab.backtesting.config.reward_config import RewardCombination, RewardStrategyConfig
-from quantrl_lab.custom_envs.stock.strategies.rewards import (
+from quantrl_lab.environments.stock.strategies.rewards import (
     HoldPenalty,
     InvalidActionPenalty,
     PortfolioValueChangeReward,
     PositionSizingRiskReward,
     TrendFollowingReward,
 )
+from quantrl_lab.experiments.backtesting.config.reward_config import RewardCombination, RewardStrategyConfig
 
 reward_configs = [
     RewardStrategyConfig(name="portfolio_reward", strategy=PortfolioValueChangeReward),

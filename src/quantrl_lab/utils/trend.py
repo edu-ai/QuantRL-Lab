@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from quantrl_lab.custom_envs.core.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 
 def calculate_trend_strength(env: TradingEnvProtocol, lookback: int = 10) -> float:
