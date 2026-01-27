@@ -1,7 +1,7 @@
 import asyncio
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import dateutil.parser
 import pandas as pd
@@ -114,7 +114,7 @@ class AlpacaDataLoader(
         start: Union[str, datetime],
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Get historical OHLCV data from Alpaca. `end` is not compulsory
@@ -183,13 +183,13 @@ class AlpacaDataLoader(
         )
         return bars_df
 
-    def get_latest_quote(self, symbol: str, **kwargs) -> Dict:
+    def get_latest_quote(self, symbol: str, **kwargs: Any) -> Dict:
         """
         Get the latest quote for a symbol from Alpaca.
 
         Args:
-            symbols (str): symbol to fetch quote for
-            **kwargs: additional arguments such as feed type
+            symbol: Stock symbol to fetch quote for
+            **kwargs: Additional arguments such as feed type
 
         Returns:
             Dict: output dictionary
@@ -198,13 +198,13 @@ class AlpacaDataLoader(
         request_params = StockLatestQuoteRequest(symbol_or_symbols=symbol)
         return self.stock_historical_client.get_stock_latest_quote(request_params)
 
-    def get_latest_trade(self, symbol: str, **kwargs) -> Dict:
+    def get_latest_trade(self, symbol: str, **kwargs: Any) -> Dict:
         """
         Get the latest trade for a symbol from Alpaca.
 
         Args:
-            symbols (str): symbol to fetch trade for
-            **kwargs: additional arguments such as feed type
+            symbol: Stock symbol to fetch trade for
+            **kwargs: Additional arguments such as feed type
 
         Returns:
             Dict: output dictionary
@@ -277,7 +277,7 @@ class AlpacaDataLoader(
         end: Optional[Union[str, datetime]] = None,
         limit: int = 50,
         include_content: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[pd.DataFrame, Dict]:
         """
         Get news for specified symbols from Alpaca News API.

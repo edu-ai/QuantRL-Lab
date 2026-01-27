@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **FMP (Financial Modeling Prep) data source** (`src/quantrl_lab/data/sources/fmp_loader.py`):
+  - Support for daily end-of-day (EOD) data
+  - Support for intraday data with multiple timeframes: 5min, 15min, 30min, 1hour, 4hour
+  - Optional `nonadjusted` parameter for raw price data
+  - Comprehensive test suite with 4 test cases
+- **Documentation site** powered by MkDocs Material (`mkdocs.yml`, `docs/`):
+  - Comprehensive guides and API reference
+  - Architecture documentation with Mermaid diagrams
+  - User guides for custom strategies and backtesting
+  - API reference auto-generated from docstrings
 - **CLAUDE.md**: Guidance file for Claude Code (claude.ai/code) with quick reference commands and architecture overview
 - **AGENTS.md**: Comprehensive guide for AI assistants working with the codebase
   - Architecture patterns (protocol-based design, registry pattern, strategy injection)
@@ -60,6 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added automatic rate limiting (1.2s between requests) to respect 1 req/sec burst limit
   - Added `Information` key logging to surface API error messages (rate limits, premium requirements)
   - Updated docstrings and example file with accurate free tier limitations
+- **Documentation build warnings** (MkDocs):
+  - Fixed 21 griffe docstring warnings by adding type hints (`**kwargs: Any`) and improving docstring formatting
+  - Fixed broken links in ARCHITECTURE.md (updated to GitHub URLs)
+  - Added ARCHITECTURE.md to navigation
+  - Disabled social plugin (resolved logo image warnings)
 
 ### Security
 
@@ -67,13 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test directory restructure**: Reorganized `tests/` to mirror `src/quantrl_lab/` structure
   - `tests/data/` - Data module tests (indicators, sources)
   - `tests/environments/stock/` - Stock environment tests (env, portfolio, action, reward)
-- **Data Module Cleanup**: Simplified filenames in `src/quantrl_lab/data/` to remove redundancy.
-  - Renamed `indicators/indicator_registry.py` -> `indicators/registry.py`
-  - Renamed `indicators/technical_indicators.py` -> `indicators/technical.py`
-  - Renamed `sources/alpaca_loader.py` -> `sources/alpaca.py`
-  - Renamed `sources/yfinance_loader.py` -> `sources/yfinance.py`
-  - Renamed `sources/alpha_vantage_loader.py` -> `sources/alpha_vantage.py`
-  - Renamed `data_source_registry.py` -> `source_registry.py`
+- **Data source naming convention**: Renamed all data source files with `_loader` suffix for consistency and to prevent package shadowing
+  - `sources/alpaca.py` → `sources/alpaca_loader.py`
+  - `sources/yfinance.py` → `sources/yfinance_loader.py`
+  - `sources/alpha_vantage.py` → `sources/alpha_vantage_loader.py`
+  - `sources/fmp.py` → `sources/fmp_loader.py`
+  - Prevents import conflicts with external packages (e.g., `alpaca-py`, `yfinance`)
+  - Clear naming: `*_loader.py` = our wrapper classes, not external packages
 
 ## [0.1.0] - 2025-10-16
 

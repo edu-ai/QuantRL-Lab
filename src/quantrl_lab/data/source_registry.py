@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
 from quantrl_lab.data.interface import HistoricalDataCapable, NewsDataCapable
-from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
-from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader  # noqa: F401
-from quantrl_lab.data.sources.yfinance import YfinanceDataloader  # noqa: F401
+from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
+from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
+from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader  # noqa: F401
 
 
 class DataSourceRegistry:
@@ -23,7 +23,7 @@ class DataSourceRegistry:
         # "sector_performance_source": FMPDataLoader,
     }
 
-    def __init__(self, sources: Optional[Dict[str, type]] = None, **kwargs) -> None:
+    def __init__(self, sources: Optional[Dict[str, type]] = None, **kwargs: Any) -> None:
         """
         Initialize with configured data sources.
 
@@ -92,16 +92,16 @@ class DataSourceRegistry:
         symbols: str,
         start: Union[str, datetime],
         end: Optional[Union[str, datetime]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Get news data for a symbol or list of symbols.
 
         Args:
-            symbols (str): stock symbol(s)
-            start (Union[str, datetime]): start date or timestamp
-            end (Optional[Union[str, datetime]], optional): end date or timestamp.
-            Defaults to None.
+            symbols: Stock symbol(s)
+            start: Start date or timestamp
+            end: End date or timestamp. Defaults to None.
+            **kwargs: Additional parameters passed to the news source
 
         Returns:
             pd.DataFrame: raw news data

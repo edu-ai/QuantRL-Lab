@@ -1,0 +1,7 @@
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quickstart: quickstart.md
+  - User Guide:
+      - Overview: overview.md

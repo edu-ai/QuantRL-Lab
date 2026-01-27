@@ -117,7 +117,7 @@ env = SingleStockTradingEnv(
 **1. Data Flow: Source → Processor → Environment**
 
 ```
-DataLoader (Alpaca/YFinance/AlphaVantage)
+DataLoader (Alpaca/YFinance/AlphaVantage/FMP)
   ↓ fetch_data()
 DataFrame with OHLCV
   ↓ DataProcessor.apply_indicators()
@@ -220,10 +220,12 @@ src/quantrl_lab/
 │           └── rewards/     # Reward functions
 │
 ├── data/                     # Data acquisition & processing
-│   ├── sources/             # Data source loaders (renamed from loaders/)
-│   │   ├── alpaca.py
-│   │   ├── yfinance.py
-│   │   └── alpha_vantage.py
+│   ├── sources/             # Data source loaders
+│   │   ├── alpaca_loader.py
+│   │   ├── yfinance_loader.py
+│   │   ├── alpha_vantage_loader.py
+│   │   └── fmp_loader.py
+│   │
 │   │
 │   ├── processors/          # Data transformation (NEW - separated from sources)
 │   │   ├── processor.py    # DataProcessor (was data_processor.py)

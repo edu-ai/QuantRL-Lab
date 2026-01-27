@@ -1,0 +1,109 @@
+site_name: QuantRL-Lab
+site_url: https://whanyu1212.github.io/QuantRL-Lab/
+site_description: A modular reinforcement learning framework for quantitative trading
+site_author: Han Yu Wu
+repo_url: https://github.com/whanyu1212/QuantRL-Lab
+repo_name: whanyu1212/QuantRL-Lab
+
+theme:
+  name: material
+  logo: fontawesome/solid/rocket
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - navigation.instant
+    - header.autohide
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  # - social  # Disabled: requires logo image
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            show_warnings: false  # Suppress docstring parsing warnings
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Overview: user-guide/overview.md
+      - Custom Strategies: user-guide/custom-strategies.md
+      - Backtesting: user-guide/backtesting.md
+  - Architecture: ARCHITECTURE.md
+  - API Reference:
+      - Environments: api-reference/environments.md
+      - Data Sources: api-reference/data-sources.md
+      - Strategies: api-reference/strategies.md
+  - Examples:
+      - Basic Backtest: examples/basic-backtest.md
+      - Feature Engineering: examples/feature-engineering.md
+      - Hyperparameter Tuning: examples/hyperparameter-tuning.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/whanyu1212/QuantRL-Lab
+  version:
+    provider: mike

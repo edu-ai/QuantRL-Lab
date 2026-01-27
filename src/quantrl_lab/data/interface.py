@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List, Optional, Protocol, Union, runtime_checkable
+from typing import Any, List, Optional, Protocol, Union, runtime_checkable
 
 import pandas as pd
 
@@ -48,7 +48,7 @@ class DataSource(ABC):
         self,
         instrument_type: Optional[str] = None,
         market: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> List[str]:
         """
         Return a list of available instrument symbols or identifiers

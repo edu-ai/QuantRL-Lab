@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import pandas as pd
 import yfinance as yf
@@ -63,16 +63,16 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         self,
         symbol: str,
         frequency: str = "quarterly",
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Get all the fundamental related data for a symbol, including
         income statement, cash flow, and balance sheet.
 
         Args:
-            symbol (str): Stock symbol, only a single symbol is supported.
-            Defaults to None.
-            frequency (str, optional):Defaults to "quarterly".
+            symbol: Stock symbol, only a single symbol is supported. Defaults to None.
+            frequency: Frequency of data. Defaults to "quarterly".
+            **kwargs: Additional yfinance parameters
 
         Returns:
             pd.DataFrame: DataFrame with raw fundamental data
@@ -167,13 +167,12 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
             timeframe (str, optional): period. Defaults to "1d".
 
         Raises:
-             ValueError: all elements in 'symbols' must be strings
+             ValueError: All elements in 'symbols' must be strings
              TypeError: 'symbols' must be a string or a list of strings
              ValueError: Invalid interval
              ValueError: Invalid start or end date
              ValueError: Start date should be before end date
-             ValueError: For 1 min interval, the start date must be within
-             30 days from the current date
+             ValueError: For 1 min interval, the start date must be within 30 days from the current date
 
         Returns:
             pd.DataFrame: output dataframe with OHLCV data (raw)

@@ -86,7 +86,7 @@ class AlphaVantageDataLoader(
         start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Get historical OHLCV data from Alpha Vantage.
@@ -95,8 +95,7 @@ class AlphaVantageDataLoader(
             symbols: Stock symbol to fetch data for
             start: Optional start date for filtering. If None, no start filtering is applied.
             end: Optional end date for filtering. If None, no end filtering is applied.
-            timeframe: Time interval - "1d" for daily, or intraday intervals like "1min", "5min",
-            "15min", "30min", "60min"
+            timeframe: Time interval - "1d" (daily), or intraday ("1min", "5min", "15min", "30min", "60min")
             **kwargs: Additional parameters including:
                      - 'adjusted' (bool, default=False): For daily data only (premium feature)
                      - 'outputsize' (str): "compact" (default, last 100 points) or "full" (premium)
@@ -253,7 +252,7 @@ class AlphaVantageDataLoader(
 
     # Fundamental Data Method #
     def get_fundamental_data(
-        self, symbol: str, metrics: List[Union[FundamentalMetric, str]], **kwargs
+        self, symbol: str, metrics: List[Union[FundamentalMetric, str]], **kwargs: Any
     ) -> Union[pd.DataFrame, Dict]:
         """
         Get fundamental data for a single symbol by combining multiple
@@ -262,8 +261,7 @@ class AlphaVantageDataLoader(
         Args:
             symbol: Stock symbol to fetch data for
             metrics: List of FundamentalMetric enums or strings
-            return_format: 'dict' or 'dataframe' (default: 'dict')
-            **kwargs: Additional parameters, e.g., 'return_format'
+            **kwargs: Additional parameters including 'return_format' ('dict' or 'dataframe', default: 'dict')
 
         Returns:
             Dict with combined fundamental data or DataFrame
@@ -327,7 +325,7 @@ class AlphaVantageDataLoader(
         start: Union[str, datetime],
         end: Optional[Union[str, datetime]] = None,
         limit: int = 50,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Fetch news data for given symbols from Alpha Vantage. This
@@ -336,14 +334,11 @@ class AlphaVantageDataLoader(
         like 'sort' and 'topics' to customize the news data.
 
         Args:
-            symbols (Union[str, List[str]]): Symbols to fetch news for.
-            start (Union[str, datetime]): Start datetime for news data.
-            end (Optional[Union[str, datetime]], optional): End datetime for news.
-            Defaults to None, which means current time.
-            limit (int, optional): Maximum number of news items to fetch.
-            Defaults to 50.
-            **kwargs: Additional parameters for the API request,
-            such as 'sort' or 'topics'.
+            symbols: Symbols to fetch news for.
+            start: Start datetime for news data.
+            end: End datetime for news. Defaults to None, which means current time.
+            limit: Maximum number of news items to fetch. Defaults to 50.
+            **kwargs: Additional parameters for the API request, such as 'sort' or 'topics'.
 
         Returns:
             pd.DataFrame: DataFrame containing news data for the
@@ -435,7 +430,7 @@ class AlphaVantageDataLoader(
         indicators: Union[str, List[str], Dict[str, Dict]],
         start: Union[str, datetime],
         end: Union[str, datetime],
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Get macroeconomic data for specified indicators. This method
