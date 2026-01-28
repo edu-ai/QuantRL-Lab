@@ -1,5 +1,5 @@
 """
-Unit tests for data sources (YFinance, Alpaca, AlphaVantage).
+Unit tests for data sources (YFinance, Alpaca, AlphaVantage, FMP).
 
 These tests use mocking to avoid actual API calls.
 """
@@ -16,9 +16,10 @@ from quantrl_lab.data.interface import (
     LiveDataCapable,
     NewsDataCapable,
 )
-from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
-from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
-from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
+from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
+from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader
 
 
 class TestYfinanceDataloader:
@@ -529,3 +530,200 @@ class TestDataSourceRegistry:
         )
 
         assert isinstance(result, pd.DataFrame)
+
+
+class TestFMPDataSource:
+    """Tests for FMPDataSource class."""
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_implements_required_protocols(self):
+        """Test that FMPDataSource implements required protocols."""
+        loader = FMPDataSource()
+        assert isinstance(loader, HistoricalDataCapable)
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_source_name(self):
+        """Test that source_name returns expected value."""
+        loader = FMPDataSource()
+        assert loader.source_name == "FinancialModelingPrep"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_init_without_key_raises_error(self):
+        """Test that initialization raises ValueError if no API key is
+        provided."""
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValueError, match="FMP API key must be provided"):
+                FMPDataSource()
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_init_with_env_var(self):
+        """Test that initialization works with environment variable."""
+        loader = FMPDataSource()
+        assert loader.api_key == "test_key"
+
+    def test_init_with_arg(self):
+        """Test that initialization works with argument."""
+        loader = FMPDataSource(api_key="arg_key")
+        assert loader.api_key == "arg_key"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_make_request_success(self, mock_get):
+        """Test _make_request handles successful response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        result = loader._make_request("test-endpoint", {})
+        assert result == {"data": "test"}
+        mock_get.assert_called_once()
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_grades_success(self, mock_get):
+        """Test get_historical_grades returns DataFrame."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {
+                "symbol": "AAPL",
+                "date": "2024-01-01",
+                "analystRatingsStrongBuy": 10,
+                "analystRatingsBuy": 20,
+                "analystRatingsHold": 5,
+                "analystRatingsSell": 1,
+                "analystRatingsStrongSell": 0,
+            }
+        ]
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        df = loader.get_historical_grades("AAPL")
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "date" in df.columns
+        assert pd.api.types.is_datetime64_any_dtype(df["date"])
+        assert df.iloc[0]["symbol"] == "AAPL"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_grades_empty(self, mock_get):
+        """Test get_historical_grades handles empty response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        df = loader.get_historical_grades("AAPL")
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.empty
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_rating_success(self, mock_get):
+        """Test get_historical_rating returns DataFrame."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {
+                "symbol": "AAPL",
+                "date": "2024-01-01",
+                "rating": "S",
+                "ratingScore": 5,
+                "ratingRecommendation": "Strong Buy",
+                "ratingDetailsDCFScore": 5,
+                "ratingDetailsROEScore": 5,
+                "ratingDetailsROAScore": 5,
+                "ratingDetailsDEScore": 5,
+                "ratingDetailsPEScore": 5,
+                "ratingDetailsPBScore": 5,
+            }
+        ]
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        df = loader.get_historical_rating("AAPL")
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "date" in df.columns
+        assert pd.api.types.is_datetime64_any_dtype(df["date"])
+        assert df.iloc[0]["symbol"] == "AAPL"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_rating_with_limit(self, mock_get):
+        """Test get_historical_rating respects limit."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        loader.get_historical_rating("AAPL", limit=50)
+
+        # Check if limit parameter was passed
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["limit"] == 50
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_ohlcv_data_daily_response_list(self, mock_get):
+        """Test get_historical_ohlcv_data for daily timeframe expecting
+        list."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Code expects a list of dictionaries
+        mock_response.json.return_value = [
+            {
+                "date": "2024-01-01",
+                "open": 150.0,
+                "high": 155.0,
+                "low": 149.0,
+                "close": 152.0,
+                "volume": 1000000,
+            }
+        ]
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01")
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "Timestamp" in df.columns
+        assert "Open" in df.columns
+        assert df.iloc[0]["Symbol"] == "AAPL"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
+    def test_get_historical_ohlcv_data_intraday(self, mock_get):
+        """Test get_historical_ohlcv_data for intraday timeframe."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Code expects a list
+        mock_response.json.return_value = [
+            {
+                "date": "2024-01-01 10:00:00",
+                "open": 150.0,
+                "high": 155.0,
+                "low": 149.0,
+                "close": 152.0,
+                "volume": 1000000,
+            }
+        ]
+        mock_get.return_value = mock_response
+
+        loader = FMPDataSource()
+        df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01", timeframe="5min")
+
+        assert isinstance(df, pd.DataFrame)
+        assert not df.empty
+        assert "Timestamp" in df.columns
+        assert "Open" in df.columns
+        assert df.iloc[0]["Symbol"] == "AAPL"

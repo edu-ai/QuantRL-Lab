@@ -366,3 +366,224 @@ def on_balance_volume(df: pd.DataFrame, close_col: str = "Close", volume_col: st
         result["OBV"] = _calculate_obv(result[close_col].values, result[volume_col].values)
 
     return result
+
+
+@IndicatorRegistry.register(name="WILLR")
+def williams_r(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
+    """
+    Calculate Williams %R indicator.
+
+    Args:
+        df (pd.DataFrame): input dataframe with OHLCV data
+        window (int, optional): lookback period. Defaults to 14.
+
+    Returns:
+        pd.DataFrame: dataframe with Williams %R column added
+    """
+    result = df.copy()
+
+    def _calculate_willr(high, low, close):
+        highest_high = pd.Series(high).rolling(window=window).max()
+        lowest_low = pd.Series(low).rolling(window=window).min()
+
+        willr = -100 * ((highest_high - close) / (highest_high - lowest_low))
+        return willr.values
+
+    if "Symbol" in result.columns:
+        for symbol, group in result.groupby("Symbol"):
+            result.loc[group.index, f"WILLR_{window}"] = _calculate_willr(
+                group["High"].values, group["Low"].values, group["Close"].values
+            )
+    else:
+        result[f"WILLR_{window}"] = _calculate_willr(
+            result["High"].values, result["Low"].values, result["Close"].values
+        )
+
+    return result
+
+
+@IndicatorRegistry.register(name="CCI")
+def cci(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
+    """
+    Calculate Commodity Channel Index (CCI).
+
+    Args:
+        df (pd.DataFrame): input dataframe with OHLCV data
+        window (int, optional): lookback period. Defaults to 20.
+
+    Returns:
+        pd.DataFrame: dataframe with CCI column added
+    """
+    result = df.copy()
+
+    def _calculate_cci(high, low, close):
+        tp = (high + low + close) / 3
+        tp_series = pd.Series(tp)
+
+        # SMA of Typical Price
+        sma_tp = tp_series.rolling(window=window).mean()
+
+        # Mean Deviation
+        # MAD = Mean(|TP - SMA_TP|) over the window
+        # Pandas doesn't have a rolling MAD centered on the rolling mean in a vectorized way easily
+        # We use rolling apply which is slower but correct
+        def mean_deviation(x):
+            return np.mean(np.abs(x - np.mean(x)))
+
+        mad = tp_series.rolling(window=window).apply(mean_deviation, raw=True)
+
+        # Handle division by zero
+        # 0.015 is the constant Lambert used
+        cci_val = (tp_series - sma_tp) / (0.015 * mad)
+
+        return cci_val.values
+
+    if "Symbol" in result.columns:
+        for symbol, group in result.groupby("Symbol"):
+            result.loc[group.index, f"CCI_{window}"] = _calculate_cci(
+                group["High"].values, group["Low"].values, group["Close"].values
+            )
+    else:
+        result[f"CCI_{window}"] = _calculate_cci(result["High"].values, result["Low"].values, result["Close"].values)
+
+    return result
+
+
+@IndicatorRegistry.register(name="MFI")
+def mfi(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
+    """
+    Calculate Money Flow Index (MFI).
+
+    Args:
+        df (pd.DataFrame): input dataframe with OHLCV data
+        window (int, optional): lookback period. Defaults to 14.
+
+    Returns:
+        pd.DataFrame: dataframe with MFI column added
+    """
+    result = df.copy()
+
+    def _calculate_mfi(high, low, close, volume):
+        # Typical Price
+        tp = (high + low + close) / 3
+
+        # Raw Money Flow
+        rmf = tp * volume
+
+        # Identify positive and negative flow
+        # We need to compare TP with previous TP
+        tp_diff = np.diff(tp, prepend=tp[0])
+
+        pos_flow = np.where(tp_diff > 0, rmf, 0)
+        neg_flow = np.where(tp_diff < 0, rmf, 0)
+
+        # Rolling sums
+        pos_mf_sum = pd.Series(pos_flow).rolling(window=window).sum()
+        neg_mf_sum = pd.Series(neg_flow).rolling(window=window).sum()
+
+        # Money Flow Index
+        # MFI = 100 - (100 / (1 + Money Ratio))
+        # Money Ratio = Positive Money Flow / Negative Money Flow
+
+        # Avoid division by zero
+        money_ratio = pos_mf_sum / neg_mf_sum
+        mfi_calc = 100 - (100 / (1 + money_ratio))
+
+        # Where neg_mf_sum is 0, if pos_mf_sum > 0, MFI is 100. If both 0, MFI is usually 50 or 0?
+        # RSI definition usually handles 0 loss as 100.
+        # Let's handle neg_mf_sum == 0 cases
+        mfi_calc = np.where(neg_mf_sum == 0, 100, mfi_calc)
+        mfi_calc = np.where((neg_mf_sum == 0) & (pos_mf_sum == 0), 50, mfi_calc)  # No volume
+
+        return mfi_calc
+
+    if "Symbol" in result.columns:
+        for symbol, group in result.groupby("Symbol"):
+            result.loc[group.index, f"MFI_{window}"] = _calculate_mfi(
+                group["High"].values, group["Low"].values, group["Close"].values, group["Volume"].values
+            )
+    else:
+        result[f"MFI_{window}"] = _calculate_mfi(
+            result["High"].values, result["Low"].values, result["Close"].values, result["Volume"].values
+        )
+
+    return result
+
+
+@IndicatorRegistry.register(name="ADX")
+def adx(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
+    """
+    Calculate Average Directional Index (ADX).
+
+    Includes +DI and -DI.
+
+    Args:
+        df (pd.DataFrame): input dataframe with OHLCV data
+        window (int, optional): lookback period. Defaults to 14.
+
+    Returns:
+        pd.DataFrame: dataframe with ADX, +DI, -DI columns added
+    """
+    result = df.copy()
+
+    def _wilder_smooth(data, window):
+        """Wilder's Smoothing (RMA) First value is SMA, subsequent are
+        (prev * (n-1) + curr) / n."""
+        smoothed = np.full_like(data, np.nan, dtype=float)
+        if len(data) > window:
+            smoothed[window - 1] = np.mean(data[:window])
+            for i in range(window, len(data)):
+                smoothed[i] = (smoothed[i - 1] * (window - 1) + data[i]) / window
+        return smoothed
+
+    def _calculate_adx(high, low, close):
+        # 1. Calculate True Range (TR)
+        # Same as ATR logic but we need the series
+        high_low = high - low
+        high_close_prev = np.abs(high - np.append(np.nan, close[:-1]))
+        low_close_prev = np.abs(low - np.append(np.nan, close[:-1]))
+        tr = np.maximum(high_low, np.maximum(high_close_prev, low_close_prev))
+
+        # 2. Calculate Directional Movement
+        up_move = high - np.append(np.nan, high[:-1])
+        down_move = np.append(np.nan, low[:-1]) - low
+
+        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+
+        # 3. Smooth TR, +DM, -DM
+        tr_smooth = _wilder_smooth(tr, window)
+        plus_dm_smooth = _wilder_smooth(plus_dm, window)
+        minus_dm_smooth = _wilder_smooth(minus_dm, window)
+
+        # 4. Calculate +DI and -DI
+        # Handle division by zero
+        with np.errstate(divide='ignore', invalid='ignore'):
+            plus_di = 100 * (plus_dm_smooth / tr_smooth)
+            minus_di = 100 * (minus_dm_smooth / tr_smooth)
+
+        # 5. Calculate DX
+        sum_di = plus_di + minus_di
+        diff_di = np.abs(plus_di - minus_di)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dx = 100 * (diff_di / sum_di)
+
+        # 6. Calculate ADX (Smooth DX)
+        adx_val = _wilder_smooth(dx, window)
+
+        return adx_val, plus_di, minus_di
+
+    if "Symbol" in result.columns:
+        for symbol, group in result.groupby("Symbol"):
+            adx_val, p_di, m_di = _calculate_adx(group["High"].values, group["Low"].values, group["Close"].values)
+            result.loc[group.index, f"ADX_{window}"] = adx_val
+            result.loc[group.index, f"ADX_pos_{window}"] = p_di
+            result.loc[group.index, f"ADX_neg_{window}"] = m_di
+    else:
+        adx_val, p_di, m_di = _calculate_adx(result["High"].values, result["Low"].values, result["Close"].values)
+        result[f"ADX_{window}"] = adx_val
+        result[f"ADX_pos_{window}"] = p_di
+        result[f"ADX_neg_{window}"] = m_di
+
+    return result

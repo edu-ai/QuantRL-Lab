@@ -283,54 +283,79 @@ class FMPDataSource(
 
         return df
 
+    def get_historical_grades(self, symbol: str) -> pd.DataFrame:
+        """
+        Get historical analyst grades for a symbol.
 
-if __name__ == "__main__":
-    from dotenv import load_dotenv
+        Args:
+            symbol: Stock symbol to fetch data for
 
-    load_dotenv()
+        Returns:
+            pd.DataFrame: Historical grades data
+        """
+        endpoint = "grades-historical"
+        params = {"symbol": symbol}
 
-    # Initialize FMP data source
-    fmp = FMPDataSource()
-    logger.info("=" * 60)
-    logger.info("FMP Data Source - Comprehensive Test")
-    logger.info("=" * 60)
+        data = self._make_request(endpoint, params)
 
-    # Test 1: Daily (EOD) data
-    logger.info("\n[TEST 1] Daily (EOD) data for AAPL (Jan 2024)...")
-    df_daily = fmp.get_historical_ohlcv_data(symbols="AAPL", start="2024-01-01", end="2024-01-31", timeframe="1d")
-    logger.info(f"  Shape: {df_daily.shape}")
-    logger.info(f"  Date range: {df_daily['Date'].min()} to {df_daily['Date'].max()}")
-    logger.info(
-        f"  Sample:\n{df_daily[['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume']].head(3).to_string(index=False)}"
-    )
+        if not data or not isinstance(data, list):
+            logger.warning(f"No historical grades found for symbol: {symbol}")
+            return pd.DataFrame()
 
-    # Test 2: 5-minute intraday data
-    logger.info("\n[TEST 2] 5-minute intraday data for AAPL (Jan 15-16, 2024)...")
-    df_5min = fmp.get_historical_ohlcv_data(symbols="AAPL", start="2024-01-15", end="2024-01-16", timeframe="5min")
-    logger.info(f"  Shape: {df_5min.shape}")
-    logger.info(f"  Time range: {df_5min['Timestamp'].min()} to {df_5min['Timestamp'].max()}")
-    logger.info(f"  Sample:\n{df_5min[['Timestamp', 'Open', 'Close', 'Volume']].head(3).to_string(index=False)}")
+        df = pd.DataFrame(data)
 
-    # Test 3: 1-hour intraday data
-    logger.info("\n[TEST 3] 1-hour intraday data for AAPL (Jan 15-16, 2024)...")
-    df_1hour = fmp.get_historical_ohlcv_data(symbols="AAPL", start="2024-01-15", end="2024-01-16", timeframe="1hour")
-    logger.info(f"  Shape: {df_1hour.shape}")
-    logger.info(f"  Sample:\n{df_1hour[['Timestamp', 'Open', 'Close', 'Volume']].head(3).to_string(index=False)}")
+        if df.empty:
+            logger.warning(f"Empty grades dataset returned for symbol: {symbol}")
+            return pd.DataFrame()
 
-    # Test 4: Unadjusted prices (intraday)
-    logger.info("\n[TEST 4] 15-minute intraday with unadjusted prices...")
-    df_nonadjusted = fmp.get_historical_ohlcv_data(
-        symbols="AAPL", start="2024-01-15", end="2024-01-16", timeframe="15min", nonadjusted=True
-    )
-    logger.info(f"  Shape: {df_nonadjusted.shape}")
-    logger.info(f"  Sample:\n{df_nonadjusted[['Timestamp', 'Open', 'Close']].head(3).to_string(index=False)}")
+        # Convert date column
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df.sort_values('date', inplace=True)
 
-    # Summary
-    logger.info("\n" + "=" * 60)
-    logger.info("All tests completed successfully!")
-    logger.info("=" * 60)
-    logger.info("\nSupported timeframes:")
-    logger.info("  Daily: 1d")
-    logger.info("  Intraday: 5min, 15min, 30min, 1hour, 4hour")
-    logger.info("\nOptional parameters:")
-    logger.info("  nonadjusted=True (for intraday data only)")
+        logger.success(
+            "Fetched {n} historical grades for {symbol}",
+            n=len(df),
+            symbol=symbol,
+        )
+
+        return df
+
+    def get_historical_rating(self, symbol: str, limit: int = 100) -> pd.DataFrame:
+        """
+        Get historical ratings for a symbol.
+
+        Args:
+            symbol: Stock symbol to fetch data for
+            limit: Number of records to return (default: 100)
+
+        Returns:
+            pd.DataFrame: Historical ratings data
+        """
+        endpoint = "ratings-historical"
+        params = {"symbol": symbol, "limit": limit}
+
+        data = self._make_request(endpoint, params)
+
+        if not data or not isinstance(data, list):
+            logger.warning(f"No historical ratings found for symbol: {symbol}")
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data)
+
+        if df.empty:
+            logger.warning(f"Empty ratings dataset returned for symbol: {symbol}")
+            return pd.DataFrame()
+
+        # Convert date column
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df.sort_values('date', inplace=True)
+
+        logger.success(
+            "Fetched {n} historical ratings for {symbol}",
+            n=len(df),
+            symbol=symbol,
+        )
+
+        return df

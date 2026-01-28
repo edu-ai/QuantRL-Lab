@@ -222,20 +222,3 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         else:
             logger.error(f"Failed to fetch data for {symbols} after {self.max_retries} retries.")
             return None
-
-
-if __name__ == "__main__":
-    # Example usage
-    yf_loader = YfinanceDataloader()
-
-    # Get fundamental data
-    print("Fetching fundamental data for PLTR...")
-    fund_data = yf_loader.get_fundamental_data("PLTR")
-    print(f"Retrieved {len(fund_data)} rows with {len(fund_data.columns)} key_cols")
-    print(fund_data)
-
-    # Get historical data
-    print("\nFetching historical data for PLTR...")
-    hist_data = yf_loader.get_historical_ohlcv_data("PLTR", start="2023-01-01", end="2025-03-10")
-    print(f"Retrieved {len(hist_data)} days of historical data")
-    print(hist_data.head())

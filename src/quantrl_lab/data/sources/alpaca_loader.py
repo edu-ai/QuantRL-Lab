@@ -1,4 +1,3 @@
-import asyncio
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
@@ -381,37 +380,3 @@ class AlpacaDataLoader(
             return pd.DataFrame(all_news)
         else:
             return pd.DataFrame()
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
-    async def main():
-        alpaca_client = AlpacaDataLoader()
-        # Test historical data
-        logger.info("Testing historical data...")
-        df = alpaca_client.get_historical_ohlcv_data("AAPL", start="2023-01-01", end="2023-01-10")
-        logger.debug("Historical data head:\n{df}", df=df.head())
-
-        # Test news data
-        logger.info("Testing news data...")
-        news_df = alpaca_client.get_news_data("AAPL", start="2023-01-01", end="2023-01-10", limit=10)
-        if not news_df.empty:
-            logger.debug("News sample:\n{df}", df=news_df.iloc[:5][["headline", "created_at", "summary"]])
-
-        # Set up the subscription
-        logger.info("Testing websocket...")
-        await alpaca_client.subscribe_to_updates("AAPL")
-
-        # Start streaming data
-        try:
-            logger.info("Starting WebSocket connection...")
-            await alpaca_client.start_streaming()
-        except KeyboardInterrupt:
-            logger.info("Closing connection...")
-        finally:
-            await alpaca_client.stop_streaming()
-
-    asyncio.run(main())

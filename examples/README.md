@@ -9,6 +9,7 @@ This folder contains example scripts demonstrating how to fetch data from differ
 | `fetch_yfinance_data.py` | Yahoo Finance | No |
 | `fetch_alpaca_data.py` | Alpaca | Yes |
 | `fetch_alphavantage_data.py` | Alpha Vantage | Yes |
+| `fetch_fmp_data.py` | Financial Modeling Prep | Yes |
 
 ## Setup
 
@@ -17,7 +18,7 @@ This folder contains example scripts demonstrating how to fetch data from differ
    uv sync
    ```
 
-2. Configure API keys (for Alpaca and Alpha Vantage):
+2. Configure API keys (for Alpaca, Alpha Vantage, and FMP):
    ```bash
    cp .env.example .env
    # Edit .env and add your API keys
@@ -34,6 +35,9 @@ uv run python examples/fetch_alpaca_data.py
 
 # Alpha Vantage (requires API key)
 uv run python examples/fetch_alphavantage_data.py
+
+# Financial Modeling Prep (requires API key)
+uv run python examples/fetch_fmp_data.py
 ```
 
 ## Data Source Comparison
@@ -52,6 +56,11 @@ uv run python examples/fetch_alphavantage_data.py
 - **Pros**: Extensive fundamental data, macroeconomic indicators, news sentiment
 - **Cons**: Strict rate limits on free tier (25 calls/day, 1 req/sec); intraday data and `outputsize=full` require premium
 - **Best for**: Fundamental analysis, macro research (premium recommended for historical OHLCV)
+
+### Financial Modeling Prep (FMP)
+- **Pros**: Good intraday data coverage (5min, 15min, 30min, 1hour, 4hour), analyst grades/ratings
+- **Cons**: Requires API key, single symbol per request
+- **Best for**: Intraday analysis, analyst sentiment data
 
 ## Data Capabilities by Source
 
