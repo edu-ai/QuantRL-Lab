@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from quantrl_lab.environments.stock.strategies.rewards.base_reward import (
+from quantrl_lab.environments.strategies.rewards import (
     BaseRewardStrategy,
 )
 

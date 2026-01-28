@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Type
 from pydantic import BaseModel
 
 from quantrl_lab.environments.stock.strategies.rewards import WeightedCompositeReward
-from quantrl_lab.environments.stock.strategies.rewards.base_reward import BaseRewardStrategy
+from quantrl_lab.environments.strategies.rewards import BaseRewardStrategy
 
 
 class RewardStrategyConfig(BaseModel):

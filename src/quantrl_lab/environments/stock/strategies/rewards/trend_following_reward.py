@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
-from quantrl_lab.environments.stock.strategies.rewards.base_reward import (
+from quantrl_lab.environments.strategies.rewards import (
     BaseRewardStrategy,
 )
 from quantrl_lab.utils.trend import calculate_trend_strength

@@ -6,7 +6,7 @@ import gymnasium as gym
 import numpy as np
 
 from quantrl_lab.environments.base.actions import Actions
-from quantrl_lab.environments.stock.strategies.actions.base_action import (
+from quantrl_lab.environments.strategies.actions import (
     BaseActionStrategy,
 )
 

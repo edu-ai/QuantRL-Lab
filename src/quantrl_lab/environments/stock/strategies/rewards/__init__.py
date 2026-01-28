@@ -1,6 +1,3 @@
-from quantrl_lab.environments.stock.strategies.rewards.base_reward import (  # noqa: F401
-    BaseRewardStrategy,
-)
 from quantrl_lab.environments.stock.strategies.rewards.hold_penalty import (  # noqa: F401
     HoldPenalty,
 )
@@ -18,4 +15,7 @@ from quantrl_lab.environments.stock.strategies.rewards.trend_following_reward im
 )
 from quantrl_lab.environments.stock.strategies.rewards.weighted_composite_reward import (  # noqa: F401
     WeightedCompositeReward,
+)
+from quantrl_lab.environments.strategies.rewards import (  # noqa: F401
+    BaseRewardStrategy,
 )

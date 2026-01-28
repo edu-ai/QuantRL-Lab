@@ -36,8 +36,7 @@ class BaseActionStrategy(ABC):
 
         Args:
             env_self (TradingEnvProtocol): The environment instance where the action is taken.
-            action (Any): The action taken by the agent,
-            which should be compatible with the defined action space.
+            action (Any): The action taken by the agent, which should be compatible with the defined action space.
 
         Returns:
             Tuple[Any, Dict[str, Any]]: The outcome of the action taken in the environment
