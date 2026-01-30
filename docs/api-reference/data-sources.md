@@ -9,17 +9,17 @@
 ## Data Loaders
 
 ### Alpaca
-::: quantrl_lab.data.sources.alpaca
+::: quantrl_lab.data.sources.alpaca_loader
     options:
         show_root_heading: true
 
 ### YFinance
-::: quantrl_lab.data.sources.yfinance
+::: quantrl_lab.data.sources.yfinance_loader
     options:
         show_root_heading: true
 
 ### Alpha Vantage
-::: quantrl_lab.data.sources.alpha_vantage
+::: quantrl_lab.data.sources.alpha_vantage_loader
     options:
         show_root_heading: true
 

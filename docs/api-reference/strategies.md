@@ -24,9 +24,6 @@
 
 ### Rewards
 
-::: quantrl_lab.environments.stock.strategies.rewards.base_reward
-    options:
-        show_root_heading: true
 
 ::: quantrl_lab.environments.stock.strategies.rewards.portfolio_reward
     options:
