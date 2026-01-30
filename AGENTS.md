@@ -59,6 +59,9 @@ pre-commit install
 # Run manually on all files
 pre-commit run --all-files
 
+# Run on specific files (useful for verifying changes before commit)
+pre-commit run --files path/to/file.py
+
 # Skip hooks temporarily
 git commit -m "message" --no-verify
 ```
@@ -68,6 +71,11 @@ git commit -m "message" --no-verify
 - isort (import sorting, black profile)
 - flake8 (linting, max-line-length=120)
 - docformatter (docstring formatting)
+
+**CRITICAL: Always verify pre-commit hooks pass after making changes**
+- For big changes (new files, refactors, API changes): Run `pre-commit run --files <changed_files>` BEFORE committing
+- Common failures: unused imports (flake8), missing docstrings (docformatter), line length (black/flake8)
+- Fix issues immediately - don't rely on the commit hook to catch them
 
 ### Notebooks
 ```bash
