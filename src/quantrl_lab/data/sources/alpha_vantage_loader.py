@@ -15,6 +15,11 @@ from quantrl_lab.data.interface import (
     NewsDataCapable,
 )
 from quantrl_lab.data.processors.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
+from quantrl_lab.data.utils import (
+    convert_columns_to_numeric,
+    log_dataframe_info,
+    normalize_date_range,
+)
 from quantrl_lab.utils.common import convert_datetime_to_alpha_vantage_format
 from quantrl_lab.utils.config import (
     ALPHA_VANTAGE_API_BASE,
@@ -32,12 +37,18 @@ class AlphaVantageDataLoader(
 ):
     """Alpha Vantage implementation that provides various datasets."""
 
+    # Constants
+    DEFAULT_MAX_RETRIES = 3
+    DEFAULT_RETRY_DELAY = 5
+    DEFAULT_RATE_LIMIT_DELAY = 1.2  # Free tier: 25 requests/day, 1 request/second burst limit
+    NUMERIC_COLUMNS = ["Open", "High", "Low", "Close", "Volume", "Adj_close"]
+
     def __init__(
         self,
         api_key: str = None,
-        max_retries: int = 3,
-        delay: int = 5,
-        rate_limit_delay: float = 1.2,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        delay: int = DEFAULT_RETRY_DELAY,
+        rate_limit_delay: float = DEFAULT_RATE_LIMIT_DELAY,
     ):
         self.api_key = api_key or os.environ.get("ALPHA_VANTAGE_API_KEY")
         self.max_retries = max_retries
@@ -112,27 +123,55 @@ class AlphaVantageDataLoader(
         # Extract adjusted parameter from kwargs, default to False
         adjusted = kwargs.pop("adjusted", False)
 
-        # Convert dates to datetime objects for filtering if provided
+        # Normalize dates using utility (allows None values for optional filtering)
         parsed_start_date = None
         parsed_end_date = None
 
-        if start is not None:
-            parsed_start_date = pd.to_datetime(start) if isinstance(start, str) else start
-        if end is not None:
-            parsed_end_date = pd.to_datetime(end) if isinstance(end, str) else end
+        if start is not None or end is not None:
+            # Only normalize if at least one date is provided
+            if start is not None and end is not None:
+                parsed_start_date, parsed_end_date = normalize_date_range(
+                    start, end, default_end_to_now=False, validate_order=True
+                )
+            elif start is not None:
+                from quantrl_lab.data.utils import normalize_date
+
+                parsed_start_date = normalize_date(start)
+            elif end is not None:
+                from quantrl_lab.data.utils import normalize_date
+
+                parsed_end_date = normalize_date(end)
 
         # Log what we're fetching
-        log_msg = f"Fetching {timeframe} data for {symbols}"
         if parsed_start_date or parsed_end_date:
             if parsed_start_date and parsed_end_date:
-                log_msg += f" from {parsed_start_date.date()} to {parsed_end_date.date()}"
+                logger.info(
+                    "Fetching {timeframe} data for {symbol} from {start} to {end}",
+                    timeframe=timeframe,
+                    symbol=symbols,
+                    start=parsed_start_date.date(),
+                    end=parsed_end_date.date(),
+                )
             elif parsed_start_date:
-                log_msg += f" from {parsed_start_date.date()} onwards"
-            elif parsed_end_date:
-                log_msg += f" up to {parsed_end_date.date()}"
+                logger.info(
+                    "Fetching {timeframe} data for {symbol} from {start} onwards",
+                    timeframe=timeframe,
+                    symbol=symbols,
+                    start=parsed_start_date.date(),
+                )
+            else:
+                logger.info(
+                    "Fetching {timeframe} data for {symbol} up to {end}",
+                    timeframe=timeframe,
+                    symbol=symbols,
+                    end=parsed_end_date.date(),
+                )
         else:
-            log_msg += " (all available data for given parameters)"
-        logger.info(log_msg)
+            logger.info(
+                "Fetching {timeframe} data for {symbol} (all available data)",
+                timeframe=timeframe,
+                symbol=symbols,
+            )
 
         # Determine which API endpoint to use based on timeframe
         if timeframe == "1d":
@@ -206,18 +245,14 @@ class AlphaVantageDataLoader(
         expected_columns = list(set(column_mapping.values()))  # Remove duplicates
         df = df[df.columns.intersection(expected_columns)]
 
-        # Convert string values to numeric
-        numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
-        if "Adj_close" in df.columns:
-            numeric_columns.append("Adj_close")
+        # Convert string values to numeric using utility
+        numeric_columns = self.NUMERIC_COLUMNS.copy()
         if "Dividend" in df.columns:
             numeric_columns.append("Dividend")
         if "Split_coeff" in df.columns:
             numeric_columns.append("Split_coeff")
 
-        for col in numeric_columns:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = convert_columns_to_numeric(df, columns=numeric_columns, errors="coerce")
 
         # Convert index to datetime
         df.index = pd.to_datetime(df.index)
@@ -233,17 +268,20 @@ class AlphaVantageDataLoader(
             df = df[df.index <= parsed_end_date]
 
         if df.empty:
-            warning_msg = f"No data found for {symbols}"
             if parsed_start_date or parsed_end_date:
-                warning_msg += " matching the specified date criteria"
-            logger.warning(warning_msg)
+                logger.warning(
+                    "No data found for {symbol} matching the specified date criteria",
+                    symbol=symbols,
+                )
+            else:
+                logger.warning("No data found for {symbol}", symbol=symbols)
         else:
             data_type = (
                 "adjusted daily"
                 if (timeframe == "1d" and adjusted)
                 else (f"{timeframe} intraday" if timeframe != "1d" else "daily")
             )
-            logger.success(f"Retrieved {len(df)} {data_type} records for {symbols}")
+            log_dataframe_info(df, f"Retrieved {data_type} records", symbol=symbols)
 
         df.reset_index(inplace=True)
         df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")

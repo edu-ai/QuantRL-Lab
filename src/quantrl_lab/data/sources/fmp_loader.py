@@ -1,28 +1,41 @@
 import os
-import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
-import requests
 from loguru import logger
 
 from quantrl_lab.data.interface import (
+    AnalystDataCapable,
     DataSource,
     HistoricalDataCapable,
+)
+from quantrl_lab.data.utils import (
+    HTTPRequestWrapper,
+    RetryStrategy,
+    convert_to_dataframe_safe,
+    format_date_to_string,
+    get_single_symbol,
+    log_dataframe_info,
+    normalize_date_range,
+    standardize_ohlcv_dataframe,
 )
 
 
 class FMPDataSource(
     DataSource,
     HistoricalDataCapable,
+    AnalystDataCapable,
 ):
     """
-    Financial Modeling Prep data source for historical stock data.
+    Financial Modeling Prep data source for historical stock data and
+    analyst insights.
 
     Supports both end-of-day (daily) and intraday data.
     Intraday timeframes: 5min, 15min, 30min, 1hour, 4hour
     Daily timeframe: 1d
+
+    Also provides analyst grades and ratings data.
     """
 
     BASE_URL = "https://financialmodelingprep.com/stable"
@@ -41,13 +54,22 @@ class FMPDataSource(
         if not self.api_key:
             raise ValueError("FMP API key must be provided or set in FMP_API_KEY environment variable")
 
+        # Initialize HTTP request wrapper with retry logic
+        self._request_wrapper = HTTPRequestWrapper(
+            max_retries=3,
+            retry_strategy=RetryStrategy.EXPONENTIAL,
+            base_delay=1.0,
+            rate_limit_delay=self.RATE_LIMIT_SLEEP,
+            timeout=30.0,
+        )
+
     @property
     def source_name(self) -> str:
         return "FinancialModelingPrep"
 
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Any:
         """
-        Make an HTTP request to the FMP API.
+        Make an HTTP request to the FMP API with retry logic.
 
         Args:
             endpoint (str): API endpoint path
@@ -57,18 +79,17 @@ class FMPDataSource(
             Any: JSON response data
 
         Raises:
-            requests.HTTPError: If the request fails
+            requests.HTTPError: If the request fails after retries
         """
         params['apikey'] = self.api_key
         url = f"{self.BASE_URL}/{endpoint}"
-        response = requests.get(url, params=params)
 
-        if response.status_code != 200:
-            logger.error(f"API request failed: {response.status_code} - {response.text}")
-            response.raise_for_status()
-
-        time.sleep(self.RATE_LIMIT_SLEEP)  # Rate limiting
-        return response.json()
+        return self._request_wrapper.make_request(
+            url=url,
+            method="GET",
+            params=params,
+            raise_on_error=True,
+        )
 
     def _get_intraday_data(
         self,
@@ -91,19 +112,10 @@ class FMPDataSource(
         Returns:
             pd.DataFrame: Intraday OHLCV data with standardized column names
         """
-        # Convert dates to string format YYYY-MM-DD
-        if isinstance(start, datetime):
-            start_str = start.strftime("%Y-%m-%d")
-        else:
-            start_str = pd.to_datetime(start).strftime("%Y-%m-%d")
-
-        if end is not None:
-            if isinstance(end, datetime):
-                end_str = end.strftime("%Y-%m-%d")
-            else:
-                end_str = pd.to_datetime(end).strftime("%Y-%m-%d")
-        else:
-            end_str = datetime.now().strftime("%Y-%m-%d")
+        # Normalize dates using utility
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+        start_str = format_date_to_string(start_dt)
+        end_str = format_date_to_string(end_dt)
 
         logger.info(
             "Fetching {timeframe} intraday data for {symbol} from {start} to {end}",
@@ -122,50 +134,35 @@ class FMPDataSource(
             "nonadjusted": str(nonadjusted).lower(),
         }
 
+        # Make API request
         data = self._make_request(endpoint, params)
 
-        if not data or not isinstance(data, list):
-            logger.warning(f"No intraday data found for symbol: {symbol}")
-            return pd.DataFrame()
-
-        df = pd.DataFrame(data)
-
+        # Safely convert to DataFrame
+        df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=symbol)
         if df.empty:
-            logger.warning(f"Empty dataset returned for symbol: {symbol}")
-            return pd.DataFrame()
+            return df
 
-        # Convert date column to datetime
-        df['date'] = pd.to_datetime(df['date'])
+        # Standardize using utility function
+        column_mapping = {
+            'date': 'Timestamp',
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume',
+        }
 
-        # Standardize column names
-        df.rename(
-            columns={
-                'date': 'Timestamp',
-                'open': 'Open',
-                'high': 'High',
-                'low': 'Low',
-                'close': 'Close',
-                'volume': 'Volume',
-            },
-            inplace=True,
-        )
-
-        # Add Symbol column
-        df['Symbol'] = symbol
-
-        # Add Date column (date only, no time)
-        df['Date'] = df['Timestamp'].dt.date
-
-        # Sort by timestamp (FMP may return newest first)
-        df.sort_values('Timestamp', inplace=True)
-
-        logger.success(
-            "Fetched {n} {timeframe} intraday rows for {symbol}",
-            n=len(df),
-            timeframe=timeframe,
+        df = standardize_ohlcv_dataframe(
+            df,
+            column_mapping=column_mapping,
             symbol=symbol,
+            timestamp_col='Timestamp',
+            add_date=True,
+            sort_data=True,
+            convert_numeric=True,
         )
 
+        log_dataframe_info(df, f"Fetched {timeframe} intraday data", symbol=symbol)
         return df
 
     def get_historical_ohlcv_data(
@@ -192,13 +189,8 @@ class FMPDataSource(
         Raises:
             ValueError: If timeframe is not supported
         """
-        # FMP only supports single symbols
-        if isinstance(symbols, list):
-            if len(symbols) > 1:
-                logger.warning("FMP data source only supports single symbol requests. Using first symbol.")
-            symbol = symbols[0]
-        else:
-            symbol = symbols
+        # FMP only supports single symbols - extract first symbol
+        symbol = get_single_symbol(symbols, warn_on_multiple=True)
 
         # Check if intraday timeframe
         if timeframe in self.INTRADAY_TIMEFRAMES:
@@ -209,19 +201,10 @@ class FMPDataSource(
         if timeframe != "1d":
             logger.warning(f"Timeframe {timeframe} not supported by FMP. Using daily (1d) data.")
 
-        # Convert dates to string format YYYY-MM-DD
-        if isinstance(start, datetime):
-            start_str = start.strftime("%Y-%m-%d")
-        else:
-            start_str = pd.to_datetime(start).strftime("%Y-%m-%d")
-
-        if end is not None:
-            if isinstance(end, datetime):
-                end_str = end.strftime("%Y-%m-%d")
-            else:
-                end_str = pd.to_datetime(end).strftime("%Y-%m-%d")
-        else:
-            end_str = datetime.now().strftime("%Y-%m-%d")
+        # Normalize dates using utility
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+        start_str = format_date_to_string(start_dt)
+        end_str = format_date_to_string(end_dt)
 
         logger.info(
             "Fetching EOD data for {symbol} from {start} to {end}",
@@ -238,49 +221,35 @@ class FMPDataSource(
             "to": end_str,
         }
 
+        # Make API request
         data = self._make_request(endpoint, params)
 
-        if not data or not isinstance(data, list):
-            logger.warning(f"No historical data found for symbol: {symbol}")
-            return pd.DataFrame()
-
-        df = pd.DataFrame(data)
-
+        # Safely convert to DataFrame
+        df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=symbol)
         if df.empty:
-            logger.warning(f"Empty dataset returned for symbol: {symbol}")
-            return pd.DataFrame()
+            return df
 
-        # Convert date column
-        df['date'] = pd.to_datetime(df['date'])
+        # Standardize using utility function
+        column_mapping = {
+            'date': 'Timestamp',
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume',
+        }
 
-        # Standardize column names to match other data sources
-        df.rename(
-            columns={
-                'date': 'Timestamp',
-                'open': 'Open',
-                'high': 'High',
-                'low': 'Low',
-                'close': 'Close',
-                'volume': 'Volume',
-            },
-            inplace=True,
-        )
-
-        # Add Symbol column
-        df['Symbol'] = symbol
-
-        # Add Date column (date only, no time)
-        df['Date'] = df['Timestamp'].dt.date
-
-        # Sort by timestamp (FMP returns newest first)
-        df.sort_values('Timestamp', inplace=True)
-
-        logger.success(
-            "Fetched {n} OHLCV rows for {symbol}",
-            n=len(df),
+        df = standardize_ohlcv_dataframe(
+            df,
+            column_mapping=column_mapping,
             symbol=symbol,
+            timestamp_col='Timestamp',
+            add_date=True,
+            sort_data=True,
+            convert_numeric=True,
         )
 
+        log_dataframe_info(df, "Fetched EOD data", symbol=symbol)
         return df
 
     def get_historical_grades(self, symbol: str) -> pd.DataFrame:

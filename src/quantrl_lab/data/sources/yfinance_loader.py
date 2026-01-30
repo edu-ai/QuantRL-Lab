@@ -11,15 +11,16 @@ from quantrl_lab.data.interface import (
     FundamentalDataCapable,
     HistoricalDataCapable,
 )
+from quantrl_lab.data.utils import log_dataframe_info, normalize_date_range, normalize_symbols
 from quantrl_lab.utils.config import (
     YFinanceInterval,
     financial_columns,
 )
 
 
-class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapable):
-    """YF implementation that provides market data and fundamental
-    data."""
+class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapable):
+    """Yahoo Finance implementation that provides market data and
+    fundamental data."""
 
     def __init__(
         self,
@@ -109,7 +110,7 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Returns:
             pd.DataFrame: DataFrame with raw income statement data
         """
-        logger.info(f"Fetching income statement for {symbol}")
+        logger.info("Fetching income statement for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
         df = ticker.get_income_stmt(freq=frequency).T.reset_index(names="Date")
         df["Date"] = pd.to_datetime(df["Date"])
@@ -126,7 +127,7 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Returns:
             pd.DataFrame: DataFrame with raw cash flow data
         """
-        logger.info(f"Fetching cash flow statement for {symbol}")
+        logger.info("Fetching cash flow statement for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
         df = ticker.get_cashflow(freq=frequency).T.reset_index(names="Date")
         df["Date"] = pd.to_datetime(df["Date"])
@@ -143,7 +144,7 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Returns:
             pd.DataFrame: DataFrame with raw balance sheet data
         """
-        logger.info(f"Fetching balance sheet for {symbol}")
+        logger.info("Fetching balance sheet for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
         df = ticker.get_balance_sheet(freq=frequency).T.reset_index(names="Date")
         df["Date"] = pd.to_datetime(df["Date"])
@@ -153,7 +154,7 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         self,
         symbols: Union[str, List[str]],
         start: Union[str, datetime],
-        end: Union[str, datetime],
+        end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs,
     ) -> pd.DataFrame:
@@ -179,46 +180,53 @@ class YfinanceDataloader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         """
 
         # --------- Runtime Error Handling ------------
-        if isinstance(symbols, str):
-            # Convert single string to a list with one element
-            symbols = [symbols]
-        elif isinstance(symbols, list):
-            # Check if all elements are strings
-            if not all(isinstance(symbol, str) for symbol in symbols):
-                raise ValueError("All elements in 'symbols' must be strings.")
-            symbols = symbols
-        else:
-            # Handle any other type (neither string nor list)
-            raise TypeError("'symbols' must be a string or a list of strings.")
+        # Normalize symbols using utility (validates type and converts to list)
+        symbol_list = normalize_symbols(symbols)
 
+        # Validate timeframe
         if timeframe not in YFinanceInterval.values():
             raise ValueError(f"Invalid interval. Must be one of {YFinanceInterval.values()}.")
 
-        try:
-            pd.to_datetime(start)
-            pd.to_datetime(end)
-        except ValueError:
-            raise ValueError("Invalid start or end date.")
+        # Normalize and validate date range using utility
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True, validate_order=True)
 
-        if start > end:
-            raise ValueError("Start date should be before end date.")
-
-        if timeframe == "1m" and start < datetime.now() - timedelta(days=30):
+        # Yahoo Finance specific validation for 1m interval
+        if timeframe == "1m" and start_dt < datetime.now() - timedelta(days=30):
             # This is the rule set by Yahoo Finance
-            raise ValueError("For 1 min interval, the start date must be within " "30 days from the current date.")
+            raise ValueError("For 1 min interval, the start date must be within 30 days from the current date.")
 
-        for _ in range(self.max_retries):
+        # Retry logic for fetching data
+        for attempt in range(self.max_retries):
             try:
                 result = pd.DataFrame()
-                for symbol in symbols:
+                for symbol in symbol_list:
                     ticker = yf.Ticker(symbol)
-                    data = ticker.history(start=start, end=end, interval=timeframe).assign(Symbol=symbol)
+                    data = ticker.history(start=start_dt, end=end_dt, interval=timeframe).assign(Symbol=symbol)
                     result = pd.concat([result, data])
-                return result.reset_index()
-            except Exception as e:
-                logger.error(f"Failed to fetch data for {symbols} - {e}")
-                time.sleep(self.delay)
 
-        else:
-            logger.error(f"Failed to fetch data for {symbols} after {self.max_retries} retries.")
-            return None
+                df_result = result.reset_index()
+                log_dataframe_info(df_result, f"Fetched OHLCV data for {len(symbol_list)} symbol(s)")
+                return df_result
+
+            except Exception as e:
+                if attempt < self.max_retries - 1:
+                    logger.warning(
+                        "Failed to fetch data for {symbols} (attempt {attempt}/{max_retries}): {error}",
+                        symbols=symbol_list,
+                        attempt=attempt + 1,
+                        max_retries=self.max_retries,
+                        error=str(e),
+                    )
+                    time.sleep(self.delay)
+                else:
+                    logger.error(
+                        "Failed to fetch data for {symbols} after {max_retries} retries: {error}",
+                        symbols=symbol_list,
+                        max_retries=self.max_retries,
+                        error=str(e),
+                    )
+                    return pd.DataFrame()
+
+
+# Backward compatibility alias
+YfinanceDataloader = YFinanceDataLoader

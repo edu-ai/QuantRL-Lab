@@ -310,6 +310,30 @@ notebooks/                 # Usage examples
 
 **See:** `notebooks/backtesting_example.ipynb` for complete example
 
+### Updating Documentation
+
+**When making API changes, ALWAYS update documentation:**
+
+1. **API endpoint changes** - module renames, class moves, new public APIs
+2. **Update MkDocs references** in `docs/api-reference/` to match actual module paths
+3. **Verify build** - run `mkdocs build` to catch errors before committing
+
+**Common doc files to check:**
+- `docs/api-reference/data-sources.md` - data loader modules
+- `docs/api-reference/strategies.md` - strategy interfaces and implementations
+- `docs/api-reference/environments.md` - environment classes
+
+**Example:** If you rename `alpaca.py` → `alpaca_loader.py`, update docs from:
+```
+::: quantrl_lab.data.sources.alpaca
+```
+to:
+```
+::: quantrl_lab.data.sources.alpaca_loader
+```
+
+**Always run `mkdocs build` before committing to ensure docs build without errors.**
+
 ## Non-Obvious Behaviors
 
 ### Environment State Management

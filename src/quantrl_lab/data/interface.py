@@ -85,6 +85,12 @@ class DataSource(ABC):
             features.append("streaming")
         if isinstance(self, ConnectionManaged):
             features.append("connection_managed")
+        if isinstance(self, FundamentalDataCapable):
+            features.append("fundamental_data")
+        if isinstance(self, MacroDataCapable):
+            features.append("macro_data")
+        if isinstance(self, AnalystDataCapable):
+            features.append("analyst_data")
 
         # Check if instrument discovery is implemented (method is overridden)
         if (
@@ -243,4 +249,46 @@ class MacroDataCapable(Protocol):
     ) -> pd.DataFrame:
         """Get macroeconomic data for specified indicators and time
         range."""
+        ...
+
+
+@runtime_checkable
+class AnalystDataCapable(Protocol):
+    """
+    Protocol for data sources that provide analyst ratings and grades
+    data.
+
+    This includes analyst recommendations, upgrades/downgrades, price targets,
+    and other research-based insights from financial analysts.
+
+    It checks if the class has the following methods:
+    - get_historical_grades
+    - get_historical_rating
+    """
+
+    def get_historical_grades(self, symbol: str, **kwargs) -> pd.DataFrame:
+        """
+        Get historical analyst grades/recommendations for a symbol.
+
+        Args:
+            symbol: Stock symbol to fetch grades for
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical analyst grades data
+        """
+        ...
+
+    def get_historical_rating(self, symbol: str, limit: int = 100, **kwargs) -> pd.DataFrame:
+        """
+        Get historical analyst ratings for a symbol.
+
+        Args:
+            symbol: Stock symbol to fetch ratings for
+            limit: Number of records to return (default: 100)
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical analyst ratings data
+        """
         ...

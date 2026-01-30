@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-import dateutil.parser
 import pandas as pd
 import requests
 from alpaca.data import StockHistoricalDataClient
@@ -24,6 +23,14 @@ from quantrl_lab.data.interface import (
     StreamingCapable,
 )
 from quantrl_lab.data.processors.mappings import ALPACA_MAPPINGS
+from quantrl_lab.data.utils import (
+    add_date_column_from_timestamp,
+    format_date_to_string,
+    log_dataframe_info,
+    normalize_date_range,
+    normalize_symbols,
+    standardize_ohlcv_columns,
+)
 
 
 class AlpacaDataLoader(
@@ -36,6 +43,11 @@ class AlpacaDataLoader(
 ):
     """Alpaca implementation that provides market data from Alpaca
     APIs."""
+
+    # Constants
+    NEWS_API_BASE_URL = "https://data.alpaca.markets/v1beta1/news"
+    DEFAULT_NEWS_SORT = "desc"
+    DEFAULT_NEWS_LIMIT = 50
 
     _stock_stream_client_instance = None
 
@@ -67,16 +79,18 @@ class AlpacaDataLoader(
     def source_name(self) -> str:
         return "Alpaca"
 
-    def connect(self) -> StockHistoricalDataClient:
+    def connect(self) -> None:
         """
         Connect to the historical data client of Alpaca.
 
-        Returns:
-            StockHistoricalDataClient: The historical data client.
+        Reinitializes the stock historical client with current credentials.
+
+        Raises:
+            ValueError: If API credentials are not provided
         """
         if not self.api_key or not self.secret_key:
             raise ValueError("Alpaca API credentials not provided")
-        return StockHistoricalDataClient(self.api_key, self.secret_key)
+        self.stock_historical_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
     def disconnect(self) -> None:
         """Disconnect from the historical data client."""
@@ -130,37 +144,29 @@ class AlpacaDataLoader(
             pd.DataFrame: raw OHLCV data
         """
 
+        # Normalize dates using utility
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+
+        # Normalize symbols using utility
+        symbol_list = normalize_symbols(symbols)
+
         logger.info(
             "Fetching historical data for {symbols} from {start} to {end} with timeframe {timeframe}",
-            symbols=symbols,
-            start=start,
-            end=end,
+            symbols=symbol_list,
+            start=start_dt,
+            end=end_dt,
             timeframe=timeframe,
         )
 
-        # Convert string inputs to proper types
-        if isinstance(start, str):
-            start = dateutil.parser.parse(start)
-
-        if end is None:
-            end = datetime.now()
-        elif isinstance(end, str):
-            end = dateutil.parser.parse(end)
-
-        # TODO: may need error handling for intraday data
         # Convert timeframe string to Alpaca TimeFrame object
         alpaca_timeframe = ALPACA_MAPPINGS.get_timeframe(timeframe)
 
-        # Convert single symbol to list
-        if isinstance(symbols, str):
-            symbols = [symbols]
-
         # Request parameters
         request_params = StockBarsRequest(
-            symbol_or_symbols=symbols,
+            symbol_or_symbols=symbol_list,
             timeframe=alpaca_timeframe,
-            start=start,
-            end=end,
+            start=start_dt,
+            end=end_dt,
             **kwargs,
         )
 
@@ -169,17 +175,21 @@ class AlpacaDataLoader(
 
         # Return as DataFrame
         bars_df = bars.df.reset_index()
-        # Upper case to standardize with other data sources
-        bars_df.rename(
-            columns=ALPACA_MAPPINGS.ohlcv_columns,
-            inplace=True,
+
+        # Standardize column names using utility
+        bars_df = standardize_ohlcv_columns(bars_df, ALPACA_MAPPINGS.ohlcv_columns)
+
+        # Add Date column using utility
+        bars_df = add_date_column_from_timestamp(bars_df, timestamp_col="Timestamp")
+
+        # Log result
+        num_symbols = len(set(bars_df["Symbol"])) if "Symbol" in bars_df.columns else 1
+        log_dataframe_info(
+            bars_df,
+            f"Fetched OHLCV data for {num_symbols} symbol(s)",
+            symbol=None,
         )
-        bars_df["Date"] = bars_df["Timestamp"].dt.date
-        logger.success(
-            "Fetched {n} OHLCV rows for {num_symbols} symbol(s)",
-            n=len(bars_df),
-            num_symbols=len(set(bars_df["Symbol"])) if "Symbol" in bars_df.columns else 1,
-        )
+
         return bars_df
 
     def get_latest_quote(self, symbol: str, **kwargs: Any) -> Dict:
@@ -293,25 +303,19 @@ class AlpacaDataLoader(
             pd.DataFrame: News data
         """
 
-        # Convert symbols list to comma-separated string if needed
-        if isinstance(symbols, list):
-            symbols = ",".join(symbols)
+        # Normalize symbols - convert to list first, then join
+        symbol_list = normalize_symbols(symbols)
+        symbols_str = ",".join(symbol_list)
 
-        # Convert datetime objects to string if needed
-        if isinstance(start, datetime):
-            start = start.strftime("%Y-%m-%d")
-
-        if end is not None and isinstance(end, datetime):
-            end = end.strftime("%Y-%m-%d")
-        elif end is None:
-            end = datetime.now().strftime("%Y-%m-%d")
+        # Normalize dates using utility
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+        start_str = format_date_to_string(start_dt)
+        end_str = format_date_to_string(end_dt)
 
         # For some reason Alpaca's Python SDK doesn't
         # have a client for the News API
         # so we'll use requests directly
 
-        # Too lazy to keep a separate config just for this 1 url
-        base_url = "https://data.alpaca.markets/v1beta1/news"
         headers = {
             "accept": "application/json",
             "APCA-API-KEY-ID": self.api_key,
@@ -319,12 +323,12 @@ class AlpacaDataLoader(
         }
 
         params = {
-            "symbols": symbols,
-            "start": start,
-            "end": end,
+            "symbols": symbols_str,
+            "start": start_str,
+            "end": end_str,
             "limit": limit,
             "include_content": str(include_content).lower(),
-            "sort": "desc",
+            "sort": self.DEFAULT_NEWS_SORT,
         }
 
         all_news = []
@@ -333,9 +337,9 @@ class AlpacaDataLoader(
 
         logger.info(
             "Fetching news for {symbols} from {start} to {end} (limit={limit}, include_content={include})",
-            symbols=symbols,
-            start=start,
-            end=end,
+            symbols=symbols_str,
+            start=start_str,
+            end=end_str,
             limit=limit,
             include=include_content,
         )
@@ -346,7 +350,7 @@ class AlpacaDataLoader(
                 params["page_token"] = page_token
 
             try:
-                response = requests.get(base_url, headers=headers, params=params)
+                response = requests.get(self.NEWS_API_BASE_URL, headers=headers, params=params)
                 response.raise_for_status()  # Raise exception for HTTP errors
 
                 data = response.json()

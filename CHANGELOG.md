@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Data utility modules** (`src/quantrl_lab/data/utils/`): Comprehensive utility library with 118 tests
+  - `date_parsing.py`: Unified date normalization, validation, and formatting across all data sources
+  - `symbol_handling.py`: Standardized symbol validation and normalization with max symbol limits
+  - `dataframe_normalization.py`: OHLCV data standardization pipeline (column renaming, type conversion, sorting)
+  - `response_validation.py`: API response validation, safe DataFrame conversion, and logging helpers
+  - `request_utils.py`: HTTP request wrapper with configurable retry strategies (exponential/linear backoff), rate limiting, and automatic rate limit error detection
+- **AnalystDataCapable protocol** (`src/quantrl_lab/data/interface.py`):
+  - New protocol for data sources providing analyst ratings and grades
+  - Methods: `get_historical_grades()` and `get_historical_rating()`
+  - FMPDataSource now implements this protocol
+- **Comprehensive test suite for utilities** (`tests/data/utils/`):
+  - `test_date_parsing.py`: 22 tests covering all date handling edge cases
+  - `test_symbol_handling.py`: 24 tests for symbol validation and normalization
+  - `test_dataframe_normalization.py`: 24 tests for DataFrame pipeline operations
+  - `test_response_validation.py`: 28 tests for API response handling
+  - `test_request_utils.py`: 20 tests for HTTP wrapper with retry logic
 - **FMP (Financial Modeling Prep) data source** (`src/quantrl_lab/data/sources/fmp_loader.py`):
   - Support for daily end-of-day (EOD) data
   - Support for intraday data with multiple timeframes: 5min, 15min, 30min, 1hour, 4hour
@@ -79,8 +95,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Refactor
+- **Major data source refactoring** - Eliminated code duplication and improved consistency:
+  - **Phase 1 - Critical fixes**:
+    - Fixed YFinanceDataLoader return type violation (now returns empty DataFrame instead of None)
+    - Fixed method signature inconsistency (added Optional to `end` parameter)
+    - Extracted hard-coded constants to class-level variables (AlpacaDataLoader, AlphaVantageDataLoader)
+    - Fixed AlpacaDataLoader protocol violation (connect() now returns None as per protocol)
+  - **Phase 2 - Utility extraction**:
+    - Created 5 utility modules (~1,000 lines of reusable code)
+    - Eliminated date parsing duplication (4 different implementations → 1 utility)
+    - Eliminated symbol handling duplication (3 different implementations → 1 utility)
+    - Eliminated DataFrame normalization duplication (15+ instances → 1 utility)
+    - Added HTTPRequestWrapper with retry logic to FMPDataSource (exponential backoff, rate limit detection)
+  - **Phase 3 - Polish**:
+    - Standardized logging across all loaders (structured logging with kwargs instead of f-strings)
+    - Renamed `YfinanceDataloader` → `YFinanceDataLoader` for consistency (with backward compatibility alias)
+    - Refactored all loaders to use new utility functions
+    - Updated 12 FMP unit tests to work with new HTTPRequestWrapper
+    - Added 118 comprehensive tests for all utility modules
+  - **Impact**: ~300+ lines of duplicate code eliminated, consistent patterns across all loaders, improved testability
 - **Test directory restructure**: Reorganized `tests/` to mirror `src/quantrl_lab/` structure
-  - `tests/data/` - Data module tests (indicators, sources)
+  - `tests/data/` - Data module tests (indicators, sources, utils)
   - `tests/environments/stock/` - Stock environment tests (env, portfolio, action, reward)
 - **Data source naming convention**: Renamed all data source files with `_loader` suffix for consistency and to prevent package shadowing
   - `sources/alpaca.py` → `sources/alpaca_loader.py`

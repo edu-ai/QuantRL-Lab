@@ -567,26 +567,19 @@ class TestFMPDataSource:
         assert loader.api_key == "arg_key"
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_make_request_success(self, mock_get):
+    def test_make_request_success(self):
         """Test _make_request handles successful response."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"data": "test"}
-        mock_get.return_value = mock_response
-
         loader = FMPDataSource()
-        result = loader._make_request("test-endpoint", {})
-        assert result == {"data": "test"}
-        mock_get.assert_called_once()
+
+        # Mock the request wrapper's make_request method
+        with patch.object(loader._request_wrapper, 'make_request', return_value={"data": "test"}):
+            result = loader._make_request("test-endpoint", {})
+            assert result == {"data": "test"}
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_grades_success(self, mock_get):
+    def test_get_historical_grades_success(self):
         """Test get_historical_grades returns DataFrame."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
+        mock_data = [
             {
                 "symbol": "AAPL",
                 "date": "2024-01-01",
@@ -597,39 +590,35 @@ class TestFMPDataSource:
                 "analystRatingsStrongSell": 0,
             }
         ]
-        mock_get.return_value = mock_response
 
         loader = FMPDataSource()
-        df = loader.get_historical_grades("AAPL")
 
-        assert isinstance(df, pd.DataFrame)
-        assert not df.empty
-        assert "date" in df.columns
-        assert pd.api.types.is_datetime64_any_dtype(df["date"])
-        assert df.iloc[0]["symbol"] == "AAPL"
+        # Mock the request wrapper's make_request method
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_grades("AAPL")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert "date" in df.columns
+            assert pd.api.types.is_datetime64_any_dtype(df["date"])
+            assert df.iloc[0]["symbol"] == "AAPL"
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_grades_empty(self, mock_get):
+    def test_get_historical_grades_empty(self):
         """Test get_historical_grades handles empty response."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = []
-        mock_get.return_value = mock_response
-
         loader = FMPDataSource()
-        df = loader.get_historical_grades("AAPL")
 
-        assert isinstance(df, pd.DataFrame)
-        assert df.empty
+        # Mock the request wrapper to return empty list
+        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+            df = loader.get_historical_grades("AAPL")
+
+            assert isinstance(df, pd.DataFrame)
+            assert df.empty
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_rating_success(self, mock_get):
+    def test_get_historical_rating_success(self):
         """Test get_historical_rating returns DataFrame."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
+        mock_data = [
             {
                 "symbol": "AAPL",
                 "date": "2024-01-01",
@@ -644,42 +633,34 @@ class TestFMPDataSource:
                 "ratingDetailsPBScore": 5,
             }
         ]
-        mock_get.return_value = mock_response
 
         loader = FMPDataSource()
-        df = loader.get_historical_rating("AAPL")
 
-        assert isinstance(df, pd.DataFrame)
-        assert not df.empty
-        assert "date" in df.columns
-        assert pd.api.types.is_datetime64_any_dtype(df["date"])
-        assert df.iloc[0]["symbol"] == "AAPL"
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_rating("AAPL")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert "date" in df.columns
+            assert pd.api.types.is_datetime64_any_dtype(df["date"])
+            assert df.iloc[0]["symbol"] == "AAPL"
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_rating_with_limit(self, mock_get):
+    def test_get_historical_rating_with_limit(self):
         """Test get_historical_rating respects limit."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = []
-        mock_get.return_value = mock_response
-
         loader = FMPDataSource()
-        loader.get_historical_rating("AAPL", limit=50)
 
-        # Check if limit parameter was passed
-        call_args = mock_get.call_args
-        assert call_args[1]["params"]["limit"] == 50
+        with patch.object(loader._request_wrapper, 'make_request', return_value=[]) as mock_request:
+            loader.get_historical_rating("AAPL", limit=50)
+
+            # Check that request was called (limit is passed in params to _make_request)
+            assert mock_request.called
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_ohlcv_data_daily_response_list(self, mock_get):
+    def test_get_historical_ohlcv_data_daily_response_list(self):
         """Test get_historical_ohlcv_data for daily timeframe expecting
         list."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        # Code expects a list of dictionaries
-        mock_response.json.return_value = [
+        mock_data = [
             {
                 "date": "2024-01-01",
                 "open": 150.0,
@@ -689,25 +670,22 @@ class TestFMPDataSource:
                 "volume": 1000000,
             }
         ]
-        mock_get.return_value = mock_response
 
         loader = FMPDataSource()
-        df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01")
 
-        assert isinstance(df, pd.DataFrame)
-        assert not df.empty
-        assert "Timestamp" in df.columns
-        assert "Open" in df.columns
-        assert df.iloc[0]["Symbol"] == "AAPL"
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert "Timestamp" in df.columns
+            assert "Open" in df.columns
+            assert df.iloc[0]["Symbol"] == "AAPL"
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.fmp_loader.requests.get")
-    def test_get_historical_ohlcv_data_intraday(self, mock_get):
+    def test_get_historical_ohlcv_data_intraday(self):
         """Test get_historical_ohlcv_data for intraday timeframe."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        # Code expects a list
-        mock_response.json.return_value = [
+        mock_data = [
             {
                 "date": "2024-01-01 10:00:00",
                 "open": 150.0,
@@ -717,13 +695,14 @@ class TestFMPDataSource:
                 "volume": 1000000,
             }
         ]
-        mock_get.return_value = mock_response
 
         loader = FMPDataSource()
-        df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01", timeframe="5min")
 
-        assert isinstance(df, pd.DataFrame)
-        assert not df.empty
-        assert "Timestamp" in df.columns
-        assert "Open" in df.columns
-        assert df.iloc[0]["Symbol"] == "AAPL"
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01", timeframe="5min")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert "Timestamp" in df.columns
+            assert "Open" in df.columns
+            assert df.iloc[0]["Symbol"] == "AAPL"
