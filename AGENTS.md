@@ -135,6 +135,9 @@ Data sources inherit `DataSource` base class and implement capability protocols:
 - `LiveDataCapable` - real-time quotes
 - `NewsDataCapable` - news sentiment
 - `StreamingCapable` - websocket streaming
+- `FundamentalDataCapable` - fundamental/financial data
+- `MacroDataCapable` - macroeconomic indicators
+- `AnalystDataCapable` - analyst grades/ratings
 
 **Example:**
 ```python
@@ -221,11 +224,17 @@ src/quantrl_lab/
 │
 ├── data/                     # Data acquisition & processing
 │   ├── sources/             # Data source loaders
-│   │   ├── alpaca_loader.py
-│   │   ├── yfinance_loader.py
-│   │   ├── alpha_vantage_loader.py
-│   │   └── fmp_loader.py
+│   │   ├── alpaca_loader.py      # Alpaca (Historical, Live, Streaming, News)
+│   │   ├── yfinance_loader.py    # Yahoo Finance (Historical, Fundamentals)
+│   │   ├── alpha_vantage_loader.py  # Alpha Vantage (Historical, Fundamentals, Macro, News)
+│   │   └── fmp_loader.py         # FMP (Historical, Analyst data)
 │   │
+│   ├── utils/               # Data handling utilities (NEW - extracted from loaders)
+│   │   ├── date_parsing.py          # Date normalization & validation
+│   │   ├── symbol_handling.py       # Symbol validation
+│   │   ├── dataframe_normalization.py  # OHLCV standardization
+│   │   ├── response_validation.py   # API response validation
+│   │   └── request_utils.py         # HTTP wrapper with retry logic
 │   │
 │   ├── processors/          # Data transformation (NEW - separated from sources)
 │   │   ├── processor.py    # DataProcessor (was data_processor.py)
@@ -375,9 +384,10 @@ reward_strategy = WeightedCompositeReward(
 ### Data Source Capabilities
 
 **Not all data sources support all features:**
-- Alpaca: Historical, Live, Streaming, News (requires API keys)
-- YFinance: Historical, Fundamentals (free, no key needed)
-- AlphaVantage: Historical, Fundamentals, Macroeconomic, News (requires API key)
+- **Alpaca**: Historical, Live, Streaming, News (requires API keys)
+- **YFinance**: Historical, Fundamentals (free, no key needed)
+- **AlphaVantage**: Historical, Fundamentals, Macroeconomic, News (requires API key)
+- **FMP**: Historical (daily + intraday), Analyst data (grades/ratings) (requires API key)
 
 **Alpha Vantage Free Tier Limitations:**
 - 25 requests/day, 1 request/second burst limit
@@ -385,10 +395,14 @@ reward_strategy = WeightedCompositeReward(
 - Intraday data (1min, 5min, etc.) requires premium
 - The loader auto-handles rate limiting and defaults to `compact` (last 100 days)
 
+**FMP Limitations:**
+- Single symbol per request (multi-symbol support logs warning)
+- Intraday timeframes: 5min, 15min, 30min, 1hour, 4hour
+
 **Check capabilities before use:**
 ```python
 features = loader.supported_features()
-# Returns: {'historical': True, 'live': False, ...}
+# Returns: {'historical': True, 'live': False, 'analyst_data': True, ...}
 ```
 
 ## Environment Variables
@@ -404,6 +418,9 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets  # Paper trading
 # Alpha Vantage (for fundamentals, macro data, news)
 # Free tier: 25 req/day, intraday & outputsize=full require premium
 ALPHA_VANTAGE_API_KEY=your_key
+
+# Financial Modeling Prep (for intraday data, analyst grades/ratings)
+FMP_API_KEY=your_key
 
 # Optional: LLM APIs for hedge screener
 OPENAI_API_KEY=your_key

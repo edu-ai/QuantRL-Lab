@@ -107,6 +107,7 @@ def example_function(param1: str, param2: int = 10) -> pd.DataFrame:
 Requires `.env` file (copy from `.env.example`):
 - `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` - Market data & trading
 - `ALPHA_VANTAGE_API_KEY` - Alternative data source (free tier: 25 req/day, intraday requires premium)
+- `FMP_API_KEY` - Financial Modeling Prep (intraday data, analyst grades/ratings)
 - `OPENAI_API_KEY` - For LLM hedge screener (optional)
 
 ## Data Utilities

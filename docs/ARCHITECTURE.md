@@ -69,7 +69,7 @@ The system is organized into four main layers: Data, Environment, Experiment, an
 ```mermaid
 graph TB
     subgraph DL["📊 Data Layer"]
-        DS[Data Sources<br/>Alpaca, Alpha Vantage<br/>Yahoo Finance, Polygon]
+        DS[Data Sources<br/>Alpaca, Alpha Vantage<br/>Yahoo Finance, FMP]
         UI[Unified Interface<br/>DataFetcher]
         PP[Processing Pipeline<br/>Technical Indicators<br/>Feature Engineering]
         DS --> UI
@@ -396,7 +396,7 @@ flowchart TB
 ```
 
 **Data transformation stages:**
-1. **Raw Sources**: Multiple heterogeneous APIs providing market data (Alpaca, Alpha Vantage, Yahoo Finance, Polygon)
+1. **Raw Sources**: Multiple heterogeneous APIs providing market data (Alpaca, Alpha Vantage, Yahoo Finance, FMP)
 2. **Acquisition Layer**: Unified interface normalizes different formats, validates schemas, caches historical data
 3. **Processing Pipeline**: Optional feature selection module, followed by technical indicator computation (trend, momentum, volatility, volume indicators)
 4. **Environment Data**: Structured state maintained by environment (market history with indicators + portfolio state with holdings/positions)
@@ -717,6 +717,7 @@ graph TB
         P5[ConnectionManaged<br/>━━━━━━━━━━━━━━<br/>connect, disconnect, is_connected]
         P6[FundamentalDataCapable<br/>━━━━━━━━━━━━━━━━━<br/>get_fundamental_data]
         P7[MacroDataCapable<br/>━━━━━━━━━━━━━<br/>get_macro_data]
+        P8[AnalystDataCapable<br/>━━━━━━━━━━━━━━<br/>get_historical_grades<br/>get_historical_rating]
     end
 
     subgraph EnvProtocol["🏪 Environment Protocol"]
@@ -738,6 +739,10 @@ graph TB
         YF[YfinanceDataloader<br/>━━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           FundamentalDataCapable]
 
         ALP[AlpacaDataLoader<br/>━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           LiveDataCapable<br/>           StreamingCapable<br/>           NewsDataCapable<br/>           ConnectionManaged]
+
+        AVDL[AlphaVantageDataLoader<br/>━━━━━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           FundamentalDataCapable<br/>           MacroDataCapable<br/>           NewsDataCapable]
+
+        FMP[FMPDataSource<br/>━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           AnalystDataCapable]
 
         TE[TradingEnv<br/>━━━━━━━━━<br/>Implements: TradingEnvProtocol<br/>Has all required attributes<br/>& methods]
     end
@@ -770,6 +775,8 @@ graph TB
 
     BASE --> YF
     BASE --> ALP
+    BASE --> AVDL
+    BASE --> FMP
 
     P1 -.->|structural typing| YF
     P6 -.->|structural typing| YF
@@ -780,10 +787,20 @@ graph TB
     P4 -.->|structural typing| ALP
     P5 -.->|structural typing| ALP
 
+    P1 -.->|structural typing| AVDL
+    P6 -.->|structural typing| AVDL
+    P7 -.->|structural typing| AVDL
+    P3 -.->|structural typing| AVDL
+
+    P1 -.->|structural typing| FMP
+    P8 -.->|structural typing| FMP
+
     EP -.->|structural typing| TE
 
     YF --> CHECK
     ALP --> CHECK
+    AVDL --> CHECK
+    FMP --> CHECK
     CHECK --> FEATURE
     FEATURE --> COMPOSE
 
@@ -803,6 +820,7 @@ graph TB
     style P5 fill:#ffe0b2,stroke:#f57c00
     style P6 fill:#ffe0b2,stroke:#f57c00
     style P7 fill:#ffe0b2,stroke:#f57c00
+    style P8 fill:#ffe0b2,stroke:#f57c00
 
     style EP fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style EP_ATTRS fill:#e1bee7,stroke:#7b1fa2
@@ -810,6 +828,8 @@ graph TB
 
     style YF fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style ALP fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style AVDL fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style FMP fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style TE fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
 
     style CHECK fill:#fff9c4,stroke:#f57f17
@@ -822,7 +842,7 @@ graph TB
     style B4 fill:#b2dfdb,stroke:#00695c
 
     classDef protocol fill:#ffccbc,stroke:#d84315
-    class P1,P2,P3,P4,P5,P6,P7,EP protocol
+    class P1,P2,P3,P4,P5,P6,P7,P8,EP protocol
 ```
 
 **How Protocols Work in QuantRL-Lab:**
