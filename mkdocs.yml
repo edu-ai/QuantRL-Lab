@@ -92,6 +92,7 @@ nav:
       - Custom Strategies: user-guide/custom-strategies.md
       - Backtesting: user-guide/backtesting.md
   - Architecture: ARCHITECTURE.md
+  - Data Sources Guide: DATA_SOURCES.md
   - API Reference:
       - Environments: api-reference/environments.md
       - Data Sources: api-reference/data-sources.md

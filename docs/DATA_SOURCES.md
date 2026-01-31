@@ -1138,9 +1138,9 @@ df = standardize_ohlcv_dataframe(df, column_mapping={...}, add_date=True, sort_d
 
 ## Further Reading
 
-- [AGENTS.md](../AGENTS.md) - Developer guide with project structure
+- [AGENTS.md](https://github.com/whanyu1212/QuantRL-Lab/blob/main/AGENTS.md) - Developer guide with project structure
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and design patterns
-- [examples/](../examples/) - Example scripts for each data source
+- [Example Scripts](https://github.com/whanyu1212/QuantRL-Lab/tree/main/examples) - Example scripts for each data source
 - [API Reference](https://whanyu1212.github.io/QuantRL-Lab/) - Full API documentation
 
 ---

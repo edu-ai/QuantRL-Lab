@@ -266,7 +266,7 @@ class AnalystDataCapable(Protocol):
     - get_historical_rating
     """
 
-    def get_historical_grades(self, symbol: str, **kwargs) -> pd.DataFrame:
+    def get_historical_grades(self, symbol: str, **kwargs: Any) -> pd.DataFrame:
         """
         Get historical analyst grades/recommendations for a symbol.
 
@@ -279,7 +279,7 @@ class AnalystDataCapable(Protocol):
         """
         ...
 
-    def get_historical_rating(self, symbol: str, limit: int = 100, **kwargs) -> pd.DataFrame:
+    def get_historical_rating(self, symbol: str, limit: int = 100, **kwargs: Any) -> pd.DataFrame:
         """
         Get historical analyst ratings for a symbol.
 
