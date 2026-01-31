@@ -43,9 +43,11 @@ All data loaders now use centralized utility functions from `src/quantrl_lab/dat
 | **Real-time Quotes/Trades** | ✅ | ❌ | ❌ | ❌ |
 | **Streaming (WebSocket)** | ✅ | ❌ | ❌ | ❌ |
 | **Fundamental Data** | ❌ | ✅ | ✅ | ❌ |
+| **Company Profile** | ❌ | ❌ | ✅ Overview | ✅ Profile |
 | **News Data** | ✅ | ❌ | ✅ Sentiment | ❌ |
 | **Macroeconomic Indicators** | ❌ | ❌ | ✅ | ❌ |
 | **Analyst Data** | ❌ | ❌ | ❌ | ✅ Grades/Ratings |
+| **Sector/Industry Performance** | ❌ | ❌ | ❌ | ✅ Historical |
 | **Multi-symbol Support** | ✅ | ✅ | ✅ | ⚠️ Single symbol |
 | **API Key Required** | ✅ | ❌ | ✅ | ✅ |
 | **Free Tier Available** | ✅ | ✅ | ✅ Limited | ✅ |
@@ -523,10 +525,22 @@ Get free key at: https://financialmodelingprep.com/developer/docs/
 - Standardized DataFrame output (symbol, timestamp, open, high, low, close, volume)
 - **Limitation:** Single symbol per request (logs warning if multiple provided)
 
-**Analyst Data (NEW):**
+**Analyst Data:**
 - Historical analyst grades/recommendations
 - Historical analyst ratings with configurable limit
 - Unique to FMP among available sources
+
+**Company Profile Data:**
+- Company information including sector, industry classification
+- Key metrics (market cap, price, beta, volume)
+- Executive information (CEO name)
+- Company details (website, exchange, IPO date, employees)
+- Useful for sector/industry screening and metadata enrichment
+
+**Market Performance Data:**
+- Historical sector performance (Energy, Technology, Healthcare, etc.)
+- Historical industry performance (Biotechnology, Software, Banks, etc.)
+- Enables sector rotation and market trend analysis
 
 #### Usage Examples
 
@@ -574,6 +588,31 @@ print(grades.columns.tolist())
 # Analyst ratings
 ratings = loader.get_historical_rating("AAPL", limit=50)
 print(ratings.head())
+
+# Company profile
+profile = loader.get_company_profile("AAPL")
+print(f"Company: {profile.iloc[0]['companyName']}")
+print(f"Sector: {profile.iloc[0]['sector']}")
+print(f"Industry: {profile.iloc[0]['industry']}")
+print(f"CEO: {profile.iloc[0].get('ceo', 'N/A')}")
+print(f"Market Cap: ${profile.iloc[0].get('mktCap', 0):,.0f}")
+
+# Historical sector performance
+sector_perf = loader.get_historical_sector_performance("Energy")
+print(f"Energy sector performance: {len(sector_perf)} records")
+print(sector_perf.head())
+
+# Historical industry performance
+industry_perf = loader.get_historical_industry_performance("Biotechnology")
+print(f"Biotechnology industry performance: {len(industry_perf)} records")
+print(industry_perf.head())
+
+# Compare multiple sectors
+sectors = ["Technology", "Healthcare", "Financials", "Energy"]
+sector_data = {
+    sector: loader.get_historical_sector_performance(sector)
+    for sector in sectors
+}
 ```
 
 #### Limitations

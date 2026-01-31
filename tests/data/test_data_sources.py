@@ -706,3 +706,189 @@ class TestFMPDataSource:
             assert "Timestamp" in df.columns
             assert "Open" in df.columns
             assert df.iloc[0]["Symbol"] == "AAPL"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_sector_performance_success(self):
+        """Test get_historical_sector_performance returns DataFrame."""
+        mock_data = [
+            {
+                "date": "2024-01-01",
+                "sector": "Energy",
+                "changesPercentage": "2.5",
+            },
+            {
+                "date": "2024-01-02",
+                "sector": "Energy",
+                "changesPercentage": "1.8",
+            },
+        ]
+
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_sector_performance("Energy")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert len(df) == 2
+            assert "date" in df.columns
+            assert pd.api.types.is_datetime64_any_dtype(df["date"])
+            assert df.iloc[0]["sector"] == "Energy"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_sector_performance_empty(self):
+        """Test get_historical_sector_performance handles empty
+        response."""
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+            df = loader.get_historical_sector_performance("Energy")
+
+            assert isinstance(df, pd.DataFrame)
+            assert df.empty
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_sector_performance_invalid_sector(self):
+        """Test get_historical_sector_performance validates sector
+        parameter."""
+        loader = FMPDataSource()
+
+        with pytest.raises(ValueError, match="Sector must be a non-empty string"):
+            loader.get_historical_sector_performance("")
+
+        with pytest.raises(ValueError, match="Sector must be a non-empty string"):
+            loader.get_historical_sector_performance(None)
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_industry_performance_success(self):
+        """Test get_historical_industry_performance returns
+        DataFrame."""
+        mock_data = [
+            {
+                "date": "2024-01-01",
+                "industry": "Biotechnology",
+                "changesPercentage": "3.2",
+            },
+            {
+                "date": "2024-01-02",
+                "industry": "Biotechnology",
+                "changesPercentage": "2.1",
+            },
+        ]
+
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_historical_industry_performance("Biotechnology")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert len(df) == 2
+            assert "date" in df.columns
+            assert pd.api.types.is_datetime64_any_dtype(df["date"])
+            assert df.iloc[0]["industry"] == "Biotechnology"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_industry_performance_empty(self):
+        """Test get_historical_industry_performance handles empty
+        response."""
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+            df = loader.get_historical_industry_performance("Biotechnology")
+
+            assert isinstance(df, pd.DataFrame)
+            assert df.empty
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_historical_industry_performance_invalid_industry(self):
+        """Test get_historical_industry_performance validates industry
+        parameter."""
+        loader = FMPDataSource()
+
+        with pytest.raises(ValueError, match="Industry must be a non-empty string"):
+            loader.get_historical_industry_performance("")
+
+        with pytest.raises(ValueError, match="Industry must be a non-empty string"):
+            loader.get_historical_industry_performance(None)
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_company_profile_success(self):
+        """Test get_company_profile returns DataFrame with company
+        info."""
+        mock_data = [
+            {
+                "symbol": "AAPL",
+                "companyName": "Apple Inc.",
+                "sector": "Technology",
+                "industry": "Consumer Electronics",
+                "description": "Apple Inc. designs, manufactures, and markets smartphones...",
+                "ceo": "Timothy D. Cook",
+                "website": "https://www.apple.com",
+                "exchange": "NASDAQ",
+                "exchangeShortName": "NASDAQ",
+                "mktCap": 3000000000000,
+                "price": 175.50,
+                "beta": 1.25,
+                "volAvg": 50000000,
+                "currency": "USD",
+                "ipoDate": "1980-12-12",
+            }
+        ]
+
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_company_profile("AAPL")
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert df.iloc[0]["symbol"] == "AAPL"
+            assert df.iloc[0]["companyName"] == "Apple Inc."
+            assert df.iloc[0]["sector"] == "Technology"
+            assert df.iloc[0]["industry"] == "Consumer Electronics"
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_company_profile_empty(self):
+        """Test get_company_profile handles empty response."""
+        loader = FMPDataSource()
+
+        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+            df = loader.get_company_profile("INVALID")
+
+            assert isinstance(df, pd.DataFrame)
+            assert df.empty
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_company_profile_invalid_symbol(self):
+        """Test get_company_profile validates symbol parameter."""
+        loader = FMPDataSource()
+
+        with pytest.raises(ValueError, match="Symbol at index 0 is empty or whitespace-only"):
+            loader.get_company_profile("")
+
+        with pytest.raises(TypeError):
+            loader.get_company_profile(None)
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_get_company_profile_normalizes_symbol(self):
+        """Test get_company_profile normalizes and validates symbol
+        input."""
+        mock_data = [
+            {
+                "symbol": "AAPL",
+                "companyName": "Apple Inc.",
+                "sector": "Technology",
+                "industry": "Consumer Electronics",
+            }
+        ]
+
+        loader = FMPDataSource()
+
+        # Test with list input (should use first symbol)
+        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+            df = loader.get_company_profile(["AAPL", "MSFT"])
+
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert df.iloc[0]["symbol"] == "AAPL"

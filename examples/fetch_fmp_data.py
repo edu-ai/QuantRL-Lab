@@ -4,6 +4,9 @@ Example: Fetching data from Financial Modeling Prep (FMP)
 FMP provides access to:
 - Historical OHLCV (price) data (daily and intraday)
 - Analyst grades and ratings
+- Company profile information (sector, industry, key metrics)
+- Historical sector performance
+- Historical industry performance
 
 Requires API key.
 """
@@ -95,6 +98,41 @@ def main():
     print(f"Retrieved {len(ratings)} historical ratings")
     print(f"Columns: {ratings.columns.tolist()}")
     print(ratings.head())
+
+    # ------------------------------------------------------------------
+    # Example 6: Fetch company profile
+    # ------------------------------------------------------------------
+    print("\n[6] Company Profile")
+    print("-" * 40)
+
+    profile = loader.get_company_profile("AAPL")
+    print(f"Retrieved company profile for {profile.iloc[0]['symbol']}")
+    print(f"\nCompany Name: {profile.iloc[0]['companyName']}")
+    print(f"Sector: {profile.iloc[0]['sector']}")
+    print(f"Industry: {profile.iloc[0]['industry']}")
+    print(f"CEO: {profile.iloc[0].get('ceo', 'N/A')}")
+    print(f"Market Cap: ${profile.iloc[0].get('mktCap', 0):,.0f}")
+    print(f"\nAll columns: {profile.columns.tolist()}")
+
+    # ------------------------------------------------------------------
+    # Example 7: Historical sector performance
+    # ------------------------------------------------------------------
+    print("\n[7] Historical Sector Performance")
+    print("-" * 40)
+
+    sector_perf = loader.get_historical_sector_performance("Technology")
+    print(f"Retrieved {len(sector_perf)} records for Technology sector")
+    print(sector_perf.head())
+
+    # ------------------------------------------------------------------
+    # Example 8: Historical industry performance
+    # ------------------------------------------------------------------
+    print("\n[8] Historical Industry Performance")
+    print("-" * 40)
+
+    industry_perf = loader.get_historical_industry_performance("Software")
+    print(f"Retrieved {len(industry_perf)} records for Software industry")
+    print(industry_perf.head())
 
     print("\n" + "=" * 60)
     print("Examples completed!")

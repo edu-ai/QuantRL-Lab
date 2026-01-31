@@ -64,15 +64,18 @@ uv run python examples/fetch_fmp_data.py
 
 ## Data Capabilities by Source
 
-| Capability | Yahoo Finance | Alpaca | Alpha Vantage |
-|------------|---------------|--------|---------------|
-| Historical OHLCV | Yes | Yes | Yes (last 100 days free) |
-| Intraday Data | Limited | Yes | Premium only |
-| Fundamental Data | Yes | No | Yes |
-| News Data | No | Yes | Yes |
-| Macro Indicators | No | No | Yes |
-| Real-time Quotes | No | Yes | No |
-| Streaming | No | Yes* | No |
+| Capability | Yahoo Finance | Alpaca | Alpha Vantage | FMP |
+|------------|---------------|--------|---------------|-----|
+| Historical OHLCV (Daily) | Yes | Yes | Yes (last 100 days free) | Yes |
+| Intraday Data | Limited (30 days for 1m) | Yes | Premium only | Yes (5min, 15min, 30min, 1hour, 4hour) |
+| Fundamental Data | Yes | No | Yes | No |
+| Company Profile | No | No | Yes (overview) | Yes (profile) |
+| News Data | No | Yes | Yes (with sentiment) | No |
+| Macro Indicators | No | No | Yes | No |
+| Real-time Quotes | No | Yes | No | No |
+| Streaming | No | Yes* | No | No |
+| Analyst Data | No | No | No | Yes (grades, ratings) |
+| Sector/Industry Performance | No | No | No | Yes (historical) |
 
 *Streaming is available but excluded from these examples.
 
