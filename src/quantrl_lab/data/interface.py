@@ -91,6 +91,10 @@ class DataSource(ABC):
             features.append("macro_data")
         if isinstance(self, AnalystDataCapable):
             features.append("analyst_data")
+        if isinstance(self, SectorDataCapable):
+            features.append("sector_data")
+        if isinstance(self, CompanyProfileCapable):
+            features.append("company_profile")
 
         # Check if instrument discovery is implemented (method is overridden)
         if (
@@ -290,5 +294,73 @@ class AnalystDataCapable(Protocol):
 
         Returns:
             pd.DataFrame: Historical analyst ratings data
+        """
+        ...
+
+
+@runtime_checkable
+class SectorDataCapable(Protocol):
+    """
+    Protocol for data sources that provide sector and industry
+    performance data.
+
+    This includes historical performance metrics for market sectors and
+    industries, enabling sector rotation and market trend analysis.
+
+    It checks if the class has the following methods:
+    - get_historical_sector_performance
+    - get_historical_industry_performance
+    """
+
+    def get_historical_sector_performance(self, sector: str, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical performance data for a specific market sector.
+
+        Args:
+            sector: Market sector name (e.g., "Energy", "Technology", "Healthcare")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical sector performance data
+        """
+        ...
+
+    def get_historical_industry_performance(self, industry: str, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical performance data for a specific industry.
+
+        Args:
+            industry: Industry name (e.g., "Biotechnology", "Software", "Banks")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical industry performance data
+        """
+        ...
+
+
+@runtime_checkable
+class CompanyProfileCapable(Protocol):
+    """
+    Protocol for data sources that provide company profile and metadata.
+
+    This includes company information such as sector/industry classification,
+    executive information, key financial metrics, and company details.
+
+    It checks if the class has the following method:
+    - get_company_profile
+    """
+
+    def get_company_profile(self, symbol: Union[str, List[str]], **kwargs: Any) -> pd.DataFrame:
+        """
+        Get company profile information including sector, industry, and
+        key metrics.
+
+        Args:
+            symbol: Stock ticker symbol or list of symbols
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Company profile data with metadata
         """
         ...

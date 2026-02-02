@@ -4,7 +4,12 @@ import pandas as pd
 from quantrl_lab.data.indicators.registry import IndicatorRegistry
 
 
-@IndicatorRegistry.register(name="SMA")
+@IndicatorRegistry.register(
+    name="SMA",
+    required_columns={"close"},
+    output_columns=["SMA"],
+    description="Simple Moving Average - smooths price data by averaging over a rolling window",
+)
 def sma(df: pd.DataFrame, window: int = 20, column: str = "Close") -> pd.DataFrame:
     """
     Add Simple Moving Average to dataframe.
@@ -31,7 +36,12 @@ def sma(df: pd.DataFrame, window: int = 20, column: str = "Close") -> pd.DataFra
     return result
 
 
-@IndicatorRegistry.register(name="EMA")
+@IndicatorRegistry.register(
+    name="EMA",
+    required_columns={"close"},
+    output_columns=["EMA"],
+    description="Exponential Moving Average - gives more weight to recent prices",
+)
 def ema(df: pd.DataFrame, window: int = 20, column: str = "Close") -> pd.DataFrame:
     """
     Add Exponential Moving Average to dataframe.
@@ -56,7 +66,12 @@ def ema(df: pd.DataFrame, window: int = 20, column: str = "Close") -> pd.DataFra
     return result
 
 
-@IndicatorRegistry.register(name="RSI")
+@IndicatorRegistry.register(
+    name="RSI",
+    required_columns={"close"},
+    output_columns=["RSI"],
+    description="Relative Strength Index - momentum oscillator measuring speed and magnitude of price changes (0-100)",
+)
 def rsi(df: pd.DataFrame, window: int = 14, column: str = "Close") -> pd.DataFrame:
     """
     Calculate Relative Strength Index using Wilder's smoothing.
@@ -121,7 +136,12 @@ def rsi(df: pd.DataFrame, window: int = 14, column: str = "Close") -> pd.DataFra
     return result
 
 
-@IndicatorRegistry.register(name="MACD")
+@IndicatorRegistry.register(
+    name="MACD",
+    required_columns={"close"},
+    output_columns=["MACD_line", "MACD_signal"],
+    description="Moving Average Convergence Divergence - trend-following momentum indicator",
+)
 def macd(
     df: pd.DataFrame,
     fast: int = 12,
@@ -169,7 +189,12 @@ def macd(
     return result
 
 
-@IndicatorRegistry.register(name="ATR")
+@IndicatorRegistry.register(
+    name="ATR",
+    required_columns={"high", "low", "close"},
+    output_columns=["ATR"],
+    description="Average True Range - measures market volatility by decomposing the entire range of prices",
+)
 def atr(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     """
     Calculate Average True Range (ATR) indicator.
@@ -218,7 +243,12 @@ def atr(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     return result
 
 
-@IndicatorRegistry.register(name="BB")
+@IndicatorRegistry.register(
+    name="BB",
+    required_columns={"close"},
+    output_columns=["BB_middle", "BB_upper", "BB_lower", "BB_bandwidth"],
+    description="Bollinger Bands - volatility bands placed above and below a moving average",
+)
 def bollinger_bands(df: pd.DataFrame, window: int = 20, num_std: float = 2.0, column: str = "Close") -> pd.DataFrame:
     """
     Calculate Bollinger Bands indicator.
@@ -278,7 +308,12 @@ def bollinger_bands(df: pd.DataFrame, window: int = 20, num_std: float = 2.0, co
     return result
 
 
-@IndicatorRegistry.register(name="STOCH")
+@IndicatorRegistry.register(
+    name="STOCH",
+    required_columns={"high", "low", "close"},
+    output_columns=["STOCH_%K", "STOCH_%D"],
+    description="Stochastic Oscillator - momentum indicator comparing closing price to price range over time (0-100)",
+)
 def stochastic(df: pd.DataFrame, k_window: int = 14, d_window: int = 3, smooth_k: int = 1) -> pd.DataFrame:
     """
     Calculate Stochastic Oscillator.
@@ -326,7 +361,12 @@ def stochastic(df: pd.DataFrame, k_window: int = 14, d_window: int = 3, smooth_k
     return result
 
 
-@IndicatorRegistry.register(name="OBV")
+@IndicatorRegistry.register(
+    name="OBV",
+    required_columns={"close", "volume"},
+    output_columns=["OBV"],
+    description="On-Balance Volume - cumulative volume indicator showing buying/selling pressure",
+)
 def on_balance_volume(df: pd.DataFrame, close_col: str = "Close", volume_col: str = "Volume") -> pd.DataFrame:
     """
     Calculate On-Balance Volume (OBV) indicator.
@@ -368,7 +408,12 @@ def on_balance_volume(df: pd.DataFrame, close_col: str = "Close", volume_col: st
     return result
 
 
-@IndicatorRegistry.register(name="WILLR")
+@IndicatorRegistry.register(
+    name="WILLR",
+    required_columns={"high", "low", "close"},
+    output_columns=["WILLR"],
+    description="Williams %R - momentum indicator measuring overbought/oversold levels (-100 to 0)",
+)
 def williams_r(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     """
     Calculate Williams %R indicator.
@@ -402,7 +447,12 @@ def williams_r(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     return result
 
 
-@IndicatorRegistry.register(name="CCI")
+@IndicatorRegistry.register(
+    name="CCI",
+    required_columns={"high", "low", "close"},
+    output_columns=["CCI"],
+    description="Commodity Channel Index - measures deviation from average price to identify cyclical trends",
+)
 def cci(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     """
     Calculate Commodity Channel Index (CCI).
@@ -449,7 +499,12 @@ def cci(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     return result
 
 
-@IndicatorRegistry.register(name="MFI")
+@IndicatorRegistry.register(
+    name="MFI",
+    required_columns={"high", "low", "close", "volume"},
+    output_columns=["MFI"],
+    description="Money Flow Index - volume-weighted RSI measuring buying and selling pressure (0-100)",
+)
 def mfi(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     """
     Calculate Money Flow Index (MFI).
@@ -510,7 +565,12 @@ def mfi(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     return result
 
 
-@IndicatorRegistry.register(name="ADX")
+@IndicatorRegistry.register(
+    name="ADX",
+    required_columns={"high", "low", "close"},
+    output_columns=["ADX", "ADX_pos", "ADX_neg"],
+    description="Average Directional Index - measures trend strength and direction (0-100)",
+)
 def adx(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     """
     Calculate Average Directional Index (ADX).

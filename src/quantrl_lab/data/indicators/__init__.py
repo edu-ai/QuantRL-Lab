@@ -1,4 +1,4 @@
-from .registry import IndicatorRegistry
+from .registry import IndicatorMetadata, IndicatorRegistry
 from .technical import (
     adx,
     atr,
@@ -16,6 +16,7 @@ from .technical import (
 
 __all__ = [
     "IndicatorRegistry",
+    "IndicatorMetadata",
     "sma",
     "ema",
     "rsi",

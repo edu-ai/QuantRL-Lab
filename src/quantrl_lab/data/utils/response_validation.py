@@ -5,6 +5,7 @@ This module provides unified functions for validating API responses and
 handling empty or invalid data consistently across all data sources.
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
@@ -191,8 +192,8 @@ def log_dataframe_info(
 
 def validate_date_range_data(
     df: pd.DataFrame,
-    start_date: Optional[Any] = None,
-    end_date: Optional[Any] = None,
+    start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
+    end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
     timestamp_col: str = 'Timestamp',
 ) -> bool:
     """

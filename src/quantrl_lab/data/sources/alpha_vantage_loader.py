@@ -7,6 +7,7 @@ import pandas as pd
 import requests
 from loguru import logger
 
+from quantrl_lab.data.exceptions import InvalidParametersError
 from quantrl_lab.data.interface import (
     DataSource,
     FundamentalDataCapable,
@@ -14,7 +15,7 @@ from quantrl_lab.data.interface import (
     MacroDataCapable,
     NewsDataCapable,
 )
-from quantrl_lab.data.processors.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
+from quantrl_lab.data.processing.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
 from quantrl_lab.data.utils import (
     convert_columns_to_numeric,
     log_dataframe_info,
@@ -209,9 +210,9 @@ class AlphaVantageDataLoader(
             raw_data = self._get_intraday_data(symbols, interval=timeframe, **kwargs)
             time_series_key = f"Time Series ({timeframe})"
         else:
-            raise ValueError(
-                f"Unsupported timeframe: {timeframe}. Use '1d' or intraday intervals like",
-                "'1min', '5min', '15min', '30min', '60min'",
+            raise InvalidParametersError(
+                f"Unsupported timeframe: {timeframe}. Use '1d' or intraday intervals like "
+                "'1min', '5min', '15min', '30min', '60min'"
             )
 
         if not raw_data:
@@ -638,8 +639,8 @@ class AlphaVantageDataLoader(
             valid_intervals = config.get("valid_intervals", [])
 
             if interval and valid_intervals and interval not in valid_intervals:
-                raise ValueError(
-                    f"Invalid interval '{interval}' for {indicator.value}. " f"Valid options: {valid_intervals}"
+                raise InvalidParametersError(
+                    f"Invalid interval '{interval}' for {indicator.value}. Valid options: {valid_intervals}"
                 )
 
             if interval:
@@ -651,8 +652,8 @@ class AlphaVantageDataLoader(
             valid_maturities = config.get("valid_maturities", [])
 
             if maturity and valid_maturities and maturity not in valid_maturities:
-                raise ValueError(
-                    f"Invalid maturity '{maturity}' for {indicator.value}. " f"Valid options: {valid_maturities}"
+                raise InvalidParametersError(
+                    f"Invalid maturity '{maturity}' for {indicator.value}. Valid options: {valid_maturities}"
                 )
 
             if maturity:
@@ -963,7 +964,7 @@ class AlphaVantageDataLoader(
 
         # Validate interval parameter
         if interval not in ["quarterly", "annual"]:
-            raise ValueError(f"Invalid interval '{interval}'. Use 'quarterly' or 'annual'.")
+            raise InvalidParametersError(f"Invalid interval '{interval}'. Use 'quarterly' or 'annual'.")
 
         params = {"interval": interval}
         params.update(kwargs)
@@ -1002,12 +1003,12 @@ class AlphaVantageDataLoader(
         # Validate interval parameter
         valid_intervals = ["daily", "weekly", "monthly"]
         if interval not in valid_intervals:
-            raise ValueError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
+            raise InvalidParametersError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
 
         # Validate maturity parameter
         valid_maturities = ["3month", "2year", "5year", "7year", "10year", "30year"]
         if maturity not in valid_maturities:
-            raise ValueError(f"Invalid maturity '{maturity}'. Use one of: {valid_maturities}")
+            raise InvalidParametersError(f"Invalid maturity '{maturity}'. Use one of: {valid_maturities}")
 
         params = {"interval": interval, "maturity": maturity}
         params.update(kwargs)
@@ -1030,7 +1031,7 @@ class AlphaVantageDataLoader(
         """
         valid_intervals = ["daily", "weekly", "monthly"]
         if interval not in valid_intervals:
-            raise ValueError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
+            raise InvalidParametersError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
 
         params = {"interval": interval}
         params.update(kwargs)
@@ -1053,7 +1054,7 @@ class AlphaVantageDataLoader(
         """
         valid_intervals = ["semiannual", "monthly"]
         if interval not in valid_intervals:
-            raise ValueError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
+            raise InvalidParametersError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
 
         params = {"interval": interval}
         params.update(kwargs)

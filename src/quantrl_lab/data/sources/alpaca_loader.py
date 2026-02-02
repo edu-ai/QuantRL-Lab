@@ -14,6 +14,7 @@ from alpaca.data.requests import (
 )
 from loguru import logger
 
+from quantrl_lab.data.exceptions import AuthenticationError
 from quantrl_lab.data.interface import (
     ConnectionManaged,
     DataSource,
@@ -22,7 +23,7 @@ from quantrl_lab.data.interface import (
     NewsDataCapable,
     StreamingCapable,
 )
-from quantrl_lab.data.processors.mappings import ALPACA_MAPPINGS
+from quantrl_lab.data.processing.mappings import ALPACA_MAPPINGS
 from quantrl_lab.data.utils import (
     add_date_column_from_timestamp,
     format_date_to_string,
@@ -89,7 +90,7 @@ class AlpacaDataLoader(
             ValueError: If API credentials are not provided
         """
         if not self.api_key or not self.secret_key:
-            raise ValueError("Alpaca API credentials not provided")
+            raise AuthenticationError("Alpaca API credentials not provided")
         self.stock_historical_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
     def disconnect(self) -> None:

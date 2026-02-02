@@ -5,10 +5,13 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 from loguru import logger
 
+from quantrl_lab.data.exceptions import AuthenticationError, InvalidParametersError
 from quantrl_lab.data.interface import (
     AnalystDataCapable,
+    CompanyProfileCapable,
     DataSource,
     HistoricalDataCapable,
+    SectorDataCapable,
 )
 from quantrl_lab.data.utils import (
     HTTPRequestWrapper,
@@ -28,6 +31,8 @@ class FMPDataSource(
     DataSource,
     HistoricalDataCapable,
     AnalystDataCapable,
+    SectorDataCapable,
+    CompanyProfileCapable,
 ):
     """
     Financial Modeling Prep data source for historical stock data and
@@ -37,10 +42,11 @@ class FMPDataSource(
     Intraday timeframes: 5min, 15min, 30min, 1hour, 4hour
     Daily timeframe: 1d
 
-    Also provides:
-    - Analyst grades and ratings data
-    - Historical sector performance data
-    - Historical industry performance data
+    Implements the following protocols:
+    - HistoricalDataCapable: OHLCV data (daily and intraday)
+    - AnalystDataCapable: Analyst grades and ratings data
+    - SectorDataCapable: Historical sector and industry performance data
+    - CompanyProfileCapable: Company profile and metadata
     """
 
     BASE_URL = "https://financialmodelingprep.com/stable"
@@ -57,7 +63,7 @@ class FMPDataSource(
         """
         self.api_key = api_key or os.environ.get("FMP_API_KEY")
         if not self.api_key:
-            raise ValueError("FMP API key must be provided or set in FMP_API_KEY environment variable")
+            raise AuthenticationError("FMP API key must be provided or set in FMP_API_KEY environment variable")
 
         # Initialize HTTP request wrapper with retry logic
         self._request_wrapper = HTTPRequestWrapper(
@@ -361,7 +367,7 @@ class FMPDataSource(
             >>> print(df.head())
         """
         if not sector or not isinstance(sector, str):
-            raise ValueError("Sector must be a non-empty string")
+            raise InvalidParametersError("Sector must be a non-empty string")
 
         logger.info("Fetching historical performance for sector: {sector}", sector=sector)
 
@@ -425,7 +431,7 @@ class FMPDataSource(
             >>> print(df.head())
         """
         if not industry or not isinstance(industry, str):
-            raise ValueError("Industry must be a non-empty string")
+            raise InvalidParametersError("Industry must be a non-empty string")
 
         logger.info("Fetching historical performance for industry: {industry}", industry=industry)
 
@@ -504,9 +510,9 @@ class FMPDataSource(
         Example:
             >>> source = FMPDataSource()
             >>> profile = source.get_company_profile("AAPL")
-            >>> print(f"Sector: {profile.iloc[0]['sector']}")
-            >>> print(f"Industry: {profile.iloc[0]['industry']}")
-            >>> print(f"CEO: {profile.iloc[0]['ceo']}")
+            >>> print(f"Sector: {profile.iloc[0].get('sector')}")
+            >>> print(f"Industry: {profile.iloc[0].get('industry')}")
+            >>> print(f"CEO: {profile.iloc[0].get('ceo')}")
 
         Use Cases:
             - Get sector/industry classification for stocks
@@ -520,7 +526,7 @@ class FMPDataSource(
         symbol = get_single_symbol(symbols)
 
         if not symbol or not isinstance(symbol, str):
-            raise ValueError("Symbol must be a non-empty string")
+            raise InvalidParametersError("Symbol must be a non-empty string")
 
         logger.info("Fetching company profile for: {symbol}", symbol=symbol)
 

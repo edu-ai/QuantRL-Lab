@@ -8,7 +8,7 @@ sources.
 
 import time
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import requests
 from loguru import logger
@@ -124,7 +124,7 @@ class HTTPRequestWrapper:
         rate_limit_retry_multiplier: float = 2.0,
         raise_on_error: bool = True,
         custom_error_check: Optional[Callable[[Any], bool]] = None,
-    ) -> Any:
+    ) -> Union[Dict[str, Any], List[Any], str, None]:
         """
         Make an HTTP request with retry logic and rate limiting.
 

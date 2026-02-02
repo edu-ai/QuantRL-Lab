@@ -6,6 +6,7 @@ import pandas as pd
 import yfinance as yf
 from loguru import logger
 
+from quantrl_lab.data.exceptions import InvalidParametersError
 from quantrl_lab.data.interface import (
     DataSource,
     FundamentalDataCapable,
@@ -185,7 +186,7 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
 
         # Validate timeframe
         if timeframe not in YFinanceInterval.values():
-            raise ValueError(f"Invalid interval. Must be one of {YFinanceInterval.values()}.")
+            raise InvalidParametersError(f"Invalid interval. Must be one of {YFinanceInterval.values()}.")
 
         # Normalize and validate date range using utility
         start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True, validate_order=True)
@@ -193,7 +194,9 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         # Yahoo Finance specific validation for 1m interval
         if timeframe == "1m" and start_dt < datetime.now() - timedelta(days=30):
             # This is the rule set by Yahoo Finance
-            raise ValueError("For 1 min interval, the start date must be within 30 days from the current date.")
+            raise InvalidParametersError(
+                "For 1 min interval, the start date must be within 30 days from the current date."
+            )
 
         # Retry logic for fetching data
         for attempt in range(self.max_retries):
@@ -226,7 +229,3 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
                         error=str(e),
                     )
                     return pd.DataFrame()
-
-
-# Backward compatibility alias
-YfinanceDataloader = YFinanceDataLoader

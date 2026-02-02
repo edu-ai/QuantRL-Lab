@@ -5,6 +5,6 @@ This package contains processors and mappings for transforming raw
 market data.
 """
 
-from quantrl_lab.data.processors.processor import DataProcessor
+from .processor import DataProcessor
 
 __all__ = ["DataProcessor"]
