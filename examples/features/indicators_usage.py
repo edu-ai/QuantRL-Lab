@@ -12,14 +12,14 @@ import pandas as pd
 from loguru import logger
 
 from quantrl_lab.data.indicators import IndicatorRegistry
-from quantrl_lab.data.sources.yfinance_loader import YFinanceLoader
+from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
 
 def main():
     # 1. Fetch some sample data
     logger.info("Fetching sample data (AAPL) from YFinance...")
-    loader = YFinanceLoader()
-    df = loader.load_data(symbols=["AAPL"], start_date="2023-01-01", end_date="2023-06-01")
+    loader = YFinanceDataLoader()
+    df = loader.get_historical_ohlcv_data(symbols=["AAPL"], start="2023-01-01", end="2023-06-01")
 
     # Basic data check
     logger.info(f"Data loaded: {len(df)} rows")
@@ -38,6 +38,10 @@ def main():
     logger.info("Applying SMA (window=20)...")
     df = IndicatorRegistry.apply("SMA", df, window=20)
 
+    # PRO TIP: TechnicalFeatureGenerator (used in DataProcessor) supports
+    # list-of-values for automatic multi-window generation:
+    # indicators = [{"SMA": {"window": [10, 20, 50]}}]
+
     # Apply RSI
     logger.info("Applying RSI (window=14)...")
     df = IndicatorRegistry.apply("RSI", df, window=14)
@@ -45,7 +49,6 @@ def main():
     # Apply Bollinger Bands
     logger.info("Applying Bollinger Bands (window=20, num_std=2)...")
     df = IndicatorRegistry.apply("BB", df, window=20, num_std=2.0)
-
     # Check the new columns
     logger.info(f"Columns after built-ins: {df.columns.tolist()}")
     logger.info(f"Last row preview:\n{df.iloc[-1][['Close', 'SMA_20', 'RSI_14', 'BB_upper_20_2.0']]}")

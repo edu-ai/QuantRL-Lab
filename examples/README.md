@@ -1,15 +1,44 @@
-# Data Source Examples
+# QuantRL-Lab Examples
 
-This folder contains example scripts demonstrating how to fetch data from different sources in QuantRL-Lab.
+This folder contains example scripts demonstrating key features of QuantRL-Lab.
 
-## Available Examples
+## Directory Structure
 
+- `data_sources/`: Scripts demonstrating how to fetch data from different providers.
+- `pipelines/`: End-to-end data processing pipelines using the `DataProcessor`.
+- `features/`: Examples focusing on specific features like technical indicators.
+- `core_concepts/`: Demonstrations of core architectural concepts like protocols.
+
+## Categories
+
+### Data Pipelines (`examples/pipelines/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `data_processing_basic.py` | **Start here!** Basic pipeline with indicators | No |
+| `data_processing_advanced.py` | Multiple indicators, custom params, train/test split | No |
+| `data_processing_param_grid.py` | Parameter grid search and 3-way splits | No |
+| `data_processing_date_split.py` | Date-based splitting and walk-forward validation | No |
+| `data_processing_with_sentiment.py` | Sentiment analysis integration | Yes (Alpaca) |
+| `data_processing_complete.py` | **All features showcase** - comprehensive example | Yes (Alpaca) |
+| `data_processing_file_config.py` | Loading configurations from YAML/JSON files | No |
+
+### Data Sources (`examples/data_sources/`)
 | Script | Data Source | API Key Required |
 |--------|-------------|------------------|
 | `fetch_yfinance_data.py` | Yahoo Finance | No |
 | `fetch_alpaca_data.py` | Alpaca | Yes |
 | `fetch_alphavantage_data.py` | Alpha Vantage | Yes |
 | `fetch_fmp_data.py` | Financial Modeling Prep | Yes |
+
+### Feature Examples (`examples/features/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `indicators_usage.py` | Technical indicator registry usage | No |
+
+### Core Concepts (`examples/core_concepts/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `protocol_demonstration.py` | Data source protocol capabilities | No |
 
 ## Setup
 
@@ -26,66 +55,52 @@ This folder contains example scripts demonstrating how to fetch data from differ
 
 ## Running Examples
 
+### Data Processing Pipelines
+
+**Recommended order for learning:**
+
 ```bash
-# Yahoo Finance (no API key needed)
-uv run python examples/fetch_yfinance_data.py
+# 1. Start here - basic concepts
+uv run python examples/pipelines/data_processing_basic.py
 
-# Alpaca (requires API key)
-uv run python examples/fetch_alpaca_data.py
+# 2. Learn advanced features
+uv run python examples/pipelines/data_processing_advanced.py
 
-# Alpha Vantage (requires API key)
-uv run python examples/fetch_alphavantage_data.py
+# 3. Explore parameter variations
+uv run python examples/pipelines/data_processing_param_grid.py
 
-# Financial Modeling Prep (requires API key)
-uv run python examples/fetch_fmp_data.py
+# 4. Master date-based splitting
+uv run python examples/pipelines/data_processing_date_split.py
+
+# 5. Add sentiment analysis (requires Alpaca API key)
+uv run python examples/pipelines/data_processing_with_sentiment.py
+
+# 6. See everything together (requires Alpaca API key)
+uv run python examples/pipelines/data_processing_complete.py
 ```
 
-## Data Source Comparison
+### Data Sources
 
-### Yahoo Finance
-- **Pros**: Free, no API key, includes fundamental data
-- **Cons**: Rate limits on intraday data (30 days max for 1-minute bars)
-- **Best for**: Quick prototyping, backtesting with daily data
+```bash
+# Yahoo Finance (no API key needed)
+uv run python examples/data_sources/fetch_yfinance_data.py
 
-### Alpaca
-- **Pros**: Real-time quotes/trades, news data, reliable historical data
-- **Cons**: Requires API key (free tier available)
-- **Best for**: Production systems, real-time applications
+# Alpaca (requires API key)
+uv run python examples/data_sources/fetch_alpaca_data.py
 
-### Alpha Vantage
-- **Pros**: Extensive fundamental data, macroeconomic indicators, news sentiment
-- **Cons**: Strict rate limits on free tier (25 calls/day, 1 req/sec); intraday data and `outputsize=full` require premium
-- **Best for**: Fundamental analysis, macro research (premium recommended for historical OHLCV)
+# Alpha Vantage (requires API key)
+uv run python examples/data_sources/fetch_alphavantage_data.py
 
-### Financial Modeling Prep (FMP)
-- **Pros**: Good intraday data coverage (5min, 15min, 30min, 1hour, 4hour), analyst grades/ratings
-- **Cons**: Requires API key, single symbol per request
-- **Best for**: Intraday analysis, analyst sentiment data
+# Financial Modeling Prep (requires API key)
+uv run python examples/data_sources/fetch_fmp_data.py
+```
 
-## Data Capabilities by Source
+### Other Examples
 
-| Capability | Yahoo Finance | Alpaca | Alpha Vantage | FMP |
-|------------|---------------|--------|---------------|-----|
-| Historical OHLCV (Daily) | Yes | Yes | Yes (last 100 days free) | Yes |
-| Intraday Data | Limited (30 days for 1m) | Yes | Premium only | Yes (5min, 15min, 30min, 1hour, 4hour) |
-| Fundamental Data | Yes | No | Yes | No |
-| Company Profile | No | No | Yes (overview) | Yes (profile) |
-| News Data | No | Yes | Yes (with sentiment) | No |
-| Macro Indicators | No | No | Yes | No |
-| Real-time Quotes | No | Yes | No | No |
-| Streaming | No | Yes* | No | No |
-| Analyst Data | No | No | No | Yes (grades, ratings) |
-| Sector/Industry Performance | No | No | No | Yes (historical) |
+```bash
+# Technical indicators
+uv run python examples/features/indicators_usage.py
 
-*Streaming is available but excluded from these examples.
-
-## Alpha Vantage Free Tier Limitations
-
-The free tier has significant restrictions:
-- **25 requests/day** (not per minute)
-- **1 request/second** burst limit
-- **`outputsize=full`** (20+ years of data) requires premium
-- **Intraday data** (1min, 5min, etc.) requires premium
-- **Historical intraday with `month` parameter** requires premium
-
-The `AlphaVantageDataLoader` automatically handles rate limiting (1.2s between requests) and defaults to `outputsize=compact` (last 100 data points) for free tier compatibility.
+# Protocol capabilities
+uv run python examples/core_concepts/protocol_demonstration.py
+```

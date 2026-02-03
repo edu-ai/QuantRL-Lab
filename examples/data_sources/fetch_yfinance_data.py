@@ -10,12 +10,12 @@ No API key required.
 
 from datetime import datetime
 
-from quantrl_lab.data.sources import YfinanceDataloader
+from quantrl_lab.data.sources import YFinanceDataLoader
 
 
 def main():
     # Initialize the data loader
-    loader = YfinanceDataloader()
+    loader = YFinanceDataLoader()
 
     print("=" * 60)
     print("Yahoo Finance Data Examples")
