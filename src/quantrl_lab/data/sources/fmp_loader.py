@@ -179,7 +179,7 @@ class FMPDataSource(
     def get_historical_ohlcv_data(
         self,
         symbols: Union[str, List[str]],
-        start: Union[str, datetime],
+        start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs: Any,
@@ -200,6 +200,9 @@ class FMPDataSource(
         Raises:
             ValueError: If timeframe is not supported
         """
+        if start is None:
+            raise InvalidParametersError("FMP requires a 'start' date for historical data.")
+
         # FMP only supports single symbols - extract first symbol
         symbol = get_single_symbol(symbols, warn_on_multiple=True)
 

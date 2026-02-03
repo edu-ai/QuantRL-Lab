@@ -149,7 +149,7 @@ class HistoricalDataCapable(Protocol):
     def get_historical_ohlcv_data(
         self,
         symbols: Union[str, List[str]],
-        start: Union[str, datetime],
+        start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs,

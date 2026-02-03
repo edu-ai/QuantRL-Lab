@@ -1,7 +1,10 @@
+import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+import yaml
 from rich.console import Console
 
 # Import centralized configuration
@@ -90,6 +93,46 @@ class ProcessingMetadata:
 
 
 class DataProcessor:
+    @staticmethod
+    def load_indicators(file_path: str) -> List[Union[str, Dict]]:
+        """
+        Load indicator configuration from a YAML or JSON file.
+
+        Args:
+            file_path: Path to the configuration file (.yaml, .yml, or .json)
+
+        Returns:
+            List[Union[str, Dict]]: List of indicator configurations
+
+        Raises:
+            FileNotFoundError: If the file does not exist
+            ValueError: If the file format is unsupported or invalid
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Configuration file not found: {file_path}")
+
+        ext = os.path.splitext(file_path)[1].lower()
+
+        try:
+            with open(file_path, "r") as f:
+                if ext in [".yaml", ".yml"]:
+                    config_data = yaml.safe_load(f)
+                elif ext == ".json":
+                    config_data = json.load(f)
+                else:
+                    raise ValueError(f"Unsupported configuration format: {ext}. Use .yaml or .json")
+
+            # Validate structure - expect a list or a dict with an 'indicators' key
+            if isinstance(config_data, list):
+                return config_data
+            elif isinstance(config_data, dict) and "indicators" in config_data:
+                return config_data["indicators"]
+            else:
+                raise ValueError("Invalid config structure. Expected a list or a dict with 'indicators' key.")
+
+        except Exception as e:
+            raise ValueError(f"Failed to load indicator config from {file_path}: {e}")
+
     def __init__(self, ohlcv_data: pd.DataFrame, **kwargs):
         if ohlcv_data is None:
             raise ValueError("Required parameter 'ohlcv_data' is missing.")

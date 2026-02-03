@@ -14,7 +14,7 @@ from alpaca.data.requests import (
 )
 from loguru import logger
 
-from quantrl_lab.data.exceptions import AuthenticationError
+from quantrl_lab.data.exceptions import AuthenticationError, InvalidParametersError
 from quantrl_lab.data.interface import (
     ConnectionManaged,
     DataSource,
@@ -125,7 +125,7 @@ class AlpacaDataLoader(
     def get_historical_ohlcv_data(
         self,
         symbols: Union[str, List[str]],
-        start: Union[str, datetime],
+        start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs: Any,
@@ -144,6 +144,9 @@ class AlpacaDataLoader(
         Returns:
             pd.DataFrame: raw OHLCV data
         """
+
+        if start is None:
+            raise InvalidParametersError("Alpaca requires a 'start' date for historical data.")
 
         # Normalize dates using utility
         start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)

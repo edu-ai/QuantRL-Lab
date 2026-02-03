@@ -154,7 +154,7 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
     def get_historical_ohlcv_data(
         self,
         symbols: Union[str, List[str]],
-        start: Union[str, datetime],
+        start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs,
@@ -164,9 +164,10 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
 
         Args:
             symbols (Union[str, List[str]]): A single symbol or a list of symbols.
-            start (Union[str, datetime]): start date or datetime
-            end (Union[str, datetime]): end date or datetime
+            start (Union[str, datetime], optional): start date or datetime
+            end (Union[str, datetime], optional): end date or datetime
             timeframe (str, optional): period. Defaults to "1d".
+            **kwargs: Additional yfinance parameters, including 'period' (e.g., '1y', 'max')
 
         Raises:
              ValueError: All elements in 'symbols' must be strings
@@ -188,15 +189,25 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         if timeframe not in YFinanceInterval.values():
             raise InvalidParametersError(f"Invalid interval. Must be one of {YFinanceInterval.values()}.")
 
-        # Normalize and validate date range using utility
-        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True, validate_order=True)
+        # Handle period vs start/end
+        period = kwargs.pop("period", None)
+        start_dt, end_dt = None, None
 
-        # Yahoo Finance specific validation for 1m interval
-        if timeframe == "1m" and start_dt < datetime.now() - timedelta(days=30):
-            # This is the rule set by Yahoo Finance
-            raise InvalidParametersError(
-                "For 1 min interval, the start date must be within 30 days from the current date."
-            )
+        if start is not None:
+            # Normalize and validate date range using utility
+            start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True, validate_order=True)
+
+            # Yahoo Finance specific validation for 1m interval
+            if timeframe == "1m" and start_dt < datetime.now() - timedelta(days=30):
+                # This is the rule set by Yahoo Finance
+                raise InvalidParametersError(
+                    "For 1 min interval, the start date must be within 30 days from the current date."
+                )
+        elif period is None:
+            # If neither start nor period is provided, default to a reasonable start (e.g., 1 month ago)
+            # or we could just raise an error. Given the protocol change, let's be flexible.
+            logger.warning("Neither 'start' nor 'period' provided. Defaulting to period='1mo'")
+            period = "1mo"
 
         # Retry logic for fetching data
         for attempt in range(self.max_retries):
@@ -204,7 +215,12 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
                 result = pd.DataFrame()
                 for symbol in symbol_list:
                     ticker = yf.Ticker(symbol)
-                    data = ticker.history(start=start_dt, end=end_dt, interval=timeframe).assign(Symbol=symbol)
+                    if start_dt is not None:
+                        data = ticker.history(start=start_dt, end=end_dt, interval=timeframe, **kwargs).assign(
+                            Symbol=symbol
+                        )
+                    else:
+                        data = ticker.history(period=period, interval=timeframe, **kwargs).assign(Symbol=symbol)
                     result = pd.concat([result, data])
 
                 df_result = result.reset_index()
