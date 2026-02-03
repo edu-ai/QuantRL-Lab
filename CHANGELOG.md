@@ -109,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added HTTPRequestWrapper with retry logic to FMPDataSource (exponential backoff, rate limit detection)
   - **Phase 3 - Polish**:
     - Standardized logging across all loaders (structured logging with kwargs instead of f-strings)
-    - Renamed `YfinanceDataloader` → `YFinanceDataLoader` for consistency (with backward compatibility alias)
+    - Renamed `YFinanceDataLoader` → `YFinanceDataLoader` for consistency (with backward compatibility alias)
     - Refactored all loaders to use new utility functions
     - Updated 12 FMP unit tests to work with new HTTPRequestWrapper
     - Added 118 comprehensive tests for all utility modules

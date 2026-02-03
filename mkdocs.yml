@@ -91,8 +91,16 @@ nav:
       - Overview: user-guide/overview.md
       - Custom Strategies: user-guide/custom-strategies.md
       - Backtesting: user-guide/backtesting.md
-  - Architecture: ARCHITECTURE.md
-  - Data Sources Guide: DATA_SOURCES.md
+  - Architecture:
+      - Overview: ARCHITECTURE.md
+      - Design Decisions: ARCHITECTURAL_DECISIONS.md
+  - Data Sources:
+      - Complete Guide: DATA_SOURCES.md
+      - Protocol Reference: NEW_PROTOCOLS_REFERENCE.md
+  - Implementation Notes:
+      - Implementation Summary: IMPLEMENTATION_SUMMARY.md
+      - Protocol Expansion: PROTOCOL_EXPANSION_SUMMARY.md
+      - Documentation Index: DOCUMENTATION_INDEX.md
   - API Reference:
       - Environments: api-reference/environments.md
       - Data Sources: api-reference/data-sources.md

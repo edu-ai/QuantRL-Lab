@@ -490,3 +490,15 @@ uv run pytest                    # All tests (if API keys available)
 - `seaborn`, `matplotlib` - Visualization
 
 **See `pyproject.toml` for complete list.**
+
+## Future Improvements
+
+### Long-term Improvements (2-3 days each)
+1. **Async Support**: Add async variants to `HistoricalDataCapable` and `DataSourceRegistry` for concurrent data fetching (5-10x speedup for multi-symbol batches).
+2. **DataValidator**: Build a dedicated `DataValidator` class for systematic quality checks (nulls, price relationships, duplicates).
+3. **FillNA Strategy**: Implement `FillStrategy` protocol to replace hard-coded fillna logic in `SentimentFeatureGenerator`.
+
+### Ongoing Improvements
+- **Protocol Consistency**: Standardize on pure Protocol-based design (structural typing) vs ABCs.
+- **Caching**: Implement `CachedDataSource` wrapper to reduce API calls.
+- **Testing**: Add pytest fixtures for common data shapes and improve dependency injection.
