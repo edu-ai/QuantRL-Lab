@@ -6,6 +6,10 @@ import pandas as pd
 import yfinance as yf
 from loguru import logger
 
+from quantrl_lab.data.config import (
+    YFinanceInterval,
+    financial_columns,
+)
 from quantrl_lab.data.exceptions import InvalidParametersError
 from quantrl_lab.data.interface import (
     DataSource,
@@ -13,10 +17,6 @@ from quantrl_lab.data.interface import (
     HistoricalDataCapable,
 )
 from quantrl_lab.data.utils import log_dataframe_info, normalize_date_range, normalize_symbols
-from quantrl_lab.utils.config import (
-    YFinanceInterval,
-    financial_columns,
-)
 
 
 class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapable):

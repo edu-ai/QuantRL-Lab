@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 from quantrl_lab.environments.strategies.observations import (
     BaseObservationStrategy,
 )
-from quantrl_lab.utils.trend import calculate_trend_strength
+from quantrl_lab.environments.utils import calc_trend
 
 
 class PortfolioWithTrendObservation(BaseObservationStrategy):
@@ -137,7 +137,7 @@ class PortfolioWithTrendObservation(BaseObservationStrategy):
         else:
             volatility = 0.0
 
-        trend = calculate_trend_strength(env, lookback=self.trend_lookback)
+        trend = calc_trend(env, lookback=self.trend_lookback)
 
         # === 4. Combine into Final Observation Vector ===
         portfolio_info = np.array(

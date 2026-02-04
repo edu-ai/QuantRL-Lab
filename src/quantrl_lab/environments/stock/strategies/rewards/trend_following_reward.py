@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 from quantrl_lab.environments.strategies.rewards import (
     BaseRewardStrategy,
 )
-from quantrl_lab.utils.trend import calculate_trend_strength
+from quantrl_lab.environments.utils import calc_trend
 
 
 # TODO: Think of a more robust way to reward trend following actions.
@@ -43,7 +43,7 @@ class TrendFollowingReward(BaseRewardStrategy):
             float: reward based on the trend following actions
         """
         action_type = env.action_type
-        trend = calculate_trend_strength(env, lookback=10)
+        trend = calc_trend(env, lookback=10)
         trend_strength = abs(trend)
         is_uptrend = trend > 0
         is_downtrend = trend < 0

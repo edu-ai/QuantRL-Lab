@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
 
 
-def calculate_trend_strength(env: TradingEnvProtocol, lookback: int = 10) -> float:
+def calc_trend(env: TradingEnvProtocol, lookback: int = 10) -> float:
     """
     Calculate the trend strength of the environment's price data.
 

@@ -7,6 +7,11 @@ import pandas as pd
 import requests
 from loguru import logger
 
+from quantrl_lab.data.config import (
+    ALPHA_VANTAGE_API_BASE,
+    FundamentalMetric,
+    MacroIndicator,
+)
 from quantrl_lab.data.exceptions import InvalidParametersError
 from quantrl_lab.data.interface import (
     DataSource,
@@ -18,14 +23,9 @@ from quantrl_lab.data.interface import (
 from quantrl_lab.data.processing.mappings import ALPHA_VANTAGE_COLUMN_MAPPER
 from quantrl_lab.data.utils import (
     convert_columns_to_numeric,
+    format_av_datetime,
     log_dataframe_info,
     normalize_date_range,
-)
-from quantrl_lab.utils.common import convert_datetime_to_alpha_vantage_format
-from quantrl_lab.utils.config import (
-    ALPHA_VANTAGE_API_BASE,
-    FundamentalMetric,
-    MacroIndicator,
 )
 
 
@@ -384,11 +384,11 @@ class AlphaVantageDataLoader(
             specified symbols.
         """
         # Convert dates to Alpha Vantage format
-        time_from = convert_datetime_to_alpha_vantage_format(start)
+        time_from = format_av_datetime(start)
 
         if end is None:
             end = datetime.now()
-        time_to = convert_datetime_to_alpha_vantage_format(end)
+        time_to = format_av_datetime(end)
 
         # Handle symbols - can be string or list
         if isinstance(symbols, str):
