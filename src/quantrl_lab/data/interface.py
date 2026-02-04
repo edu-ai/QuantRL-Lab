@@ -203,11 +203,10 @@ class StreamingCapable(Protocol):
     - stop
     """
 
-    async def subscribe(
+    async def subscribe_to_updates(
         self,
-        symbols: Union[str, List[str]],
-        callback,
-        data_type: str = "quotes",
+        symbol: str,
+        data_type: str = "trades",
         **kwargs,
     ):
         """Subscribe to real-time data updates."""

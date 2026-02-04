@@ -5,6 +5,7 @@ This example shows how to use runtime protocol checking to detect
 which capabilities a data source supports.
 """
 
+from quantrl_lab.data.exceptions import AuthenticationError
 from quantrl_lab.data.interface import (
     AnalystDataCapable,
     CompanyProfileCapable,
@@ -65,21 +66,21 @@ def main():
     try:
         alpaca_loader = AlpacaDataLoader()
         check_protocols(alpaca_loader, "Alpaca")
-    except ValueError:
+    except (ValueError, AuthenticationError):
         print("\nAlpaca: Skipped (API keys not configured)")
 
     # Alpha Vantage (requires API key in .env)
     try:
         av_loader = AlphaVantageDataLoader()
         check_protocols(av_loader, "Alpha Vantage")
-    except ValueError:
+    except (ValueError, AuthenticationError):
         print("\nAlpha Vantage: Skipped (API key not configured)")
 
     # FMP (requires API key in .env)
     try:
         fmp_loader = FMPDataSource()
         check_protocols(fmp_loader, "Financial Modeling Prep (FMP)")
-    except ValueError:
+    except (ValueError, AuthenticationError):
         print("\nFMP: Skipped (API key not configured)")
 
     # Demonstrate conditional usage based on protocol
@@ -106,7 +107,7 @@ def main():
             print("  Available methods:")
             print("  - get_historical_grades()")
             print("  - get_historical_rating()")
-    except ValueError:
+    except (ValueError, AuthenticationError):
         print("\nFMP not configured")
 
     # Check using supports_feature() method
@@ -123,7 +124,7 @@ def main():
         print(f"\nFMP supports 'sector_data': {fmp.supports_feature('sector_data')}")
         print(f"FMP supports 'company_profile': {fmp.supports_feature('company_profile')}")
         print(f"FMP supports 'analyst_data': {fmp.supports_feature('analyst_data')}")
-    except ValueError:
+    except (ValueError, AuthenticationError):
         print("\nFMP not configured")
 
     print("\n" + "=" * 60)

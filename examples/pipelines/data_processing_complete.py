@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from quantrl_lab.data import AlpacaDataLoader, DataProcessor
-from quantrl_lab.data.providers.sentiment import HuggingFaceConfig, HuggingFaceProvider, SentimentConfig
+from quantrl_lab.data.processing.sentiment import HuggingFaceConfig, HuggingFaceProvider, SentimentConfig
 
 
 def check_api_keys():
@@ -72,7 +72,7 @@ def main():
     print(f"✓ Loaded {len(ohlcv_df)} price rows")
 
     print(f"\nLoading news data for {symbol}...")
-    news_df = loader.get_news(
+    news_df = loader.get_news_data(
         symbols=symbol,
         start=start_date.strftime("%Y-%m-%d"),
         end=end_date.strftime("%Y-%m-%d"),
@@ -169,6 +169,7 @@ def main():
         indicators=indicators,
         fillna_strategy="fill_forward",
         split_config=split_config,
+        verbose=True,
     )
 
     print("\n✓ Processing complete!")

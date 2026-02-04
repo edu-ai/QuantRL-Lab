@@ -20,8 +20,8 @@ Note: Free tier limitations:
 
 from dotenv import load_dotenv
 
+from quantrl_lab.data.config import FundamentalMetric, MacroIndicator
 from quantrl_lab.data.sources import AlphaVantageDataLoader
-from quantrl_lab.utils.config import FundamentalMetric, MacroIndicator
 
 # Load environment variables from .env file
 load_dotenv()

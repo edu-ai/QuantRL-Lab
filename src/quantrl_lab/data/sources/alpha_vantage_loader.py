@@ -423,18 +423,36 @@ class AlphaVantageDataLoader(
 
         news_df = pd.DataFrame(news_data["feed"]) if news_data and "feed" in news_data else pd.DataFrame()
 
+        # If we got an empty DataFrame, return it early
+        if news_df.empty:
+            logger.warning(
+                f"No news data retrieved for {tickers}. This may be due to rate limits or no data available."
+            )
+            return news_df
+
         # Rename time_published to created_at to standardize the column name
         if "time_published" in news_df.columns:
             news_df.rename(columns={"time_published": "created_at"}, inplace=True)
+        else:
+            logger.error(f"Expected 'time_published' column not found in news data for {tickers}")
+            logger.debug(f"Available columns: {list(news_df.columns)}")
+            return pd.DataFrame()
 
         # Convert created_at to datetime
-        news_df["created_at"] = pd.to_datetime(news_df["created_at"], format="%Y%m%dT%H%M%S")
-        news_df["Date"] = news_df["created_at"].dt.date
+        try:
+            news_df["created_at"] = pd.to_datetime(news_df["created_at"], format="%Y%m%dT%H%M%S")
+            news_df["Date"] = news_df["created_at"].dt.date
+        except Exception as e:
+            logger.error(f"Failed to parse news timestamps for {tickers}: {e}")
+            return pd.DataFrame()
 
-        if not news_df.empty and "ticker_sentiment" in news_df.columns:
-            news_df["sentiment_score"] = (
-                news_df["ticker_sentiment"].apply(lambda x: self._find_ticker_sentiment(x, tickers)).astype(float)
-            )
+        if "ticker_sentiment" in news_df.columns:
+            try:
+                news_df["sentiment_score"] = (
+                    news_df["ticker_sentiment"].apply(lambda x: self._find_ticker_sentiment(x, tickers)).astype(float)
+                )
+            except Exception as e:
+                logger.warning(f"Failed to extract sentiment scores for {tickers}: {e}")
 
         logger.success(f"Retrieved {len(news_df)} news items for {tickers}")
 

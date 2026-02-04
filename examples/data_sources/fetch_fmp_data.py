@@ -13,7 +13,12 @@ Requires API key.
 
 from datetime import datetime, timedelta
 
+from dotenv import load_dotenv
+
 from quantrl_lab.data.sources import FMPDataSource
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def main():
@@ -130,8 +135,8 @@ def main():
     print("\n[8] Historical Industry Performance")
     print("-" * 40)
 
-    industry_perf = loader.get_historical_industry_performance("Software")
-    print(f"Retrieved {len(industry_perf)} records for Software industry")
+    industry_perf = loader.get_historical_industry_performance("Biotechnology")
+    print(f"Retrieved {len(industry_perf)} records for Biotechnology industry")
     print(industry_perf.head())
 
     print("\n" + "=" * 60)
