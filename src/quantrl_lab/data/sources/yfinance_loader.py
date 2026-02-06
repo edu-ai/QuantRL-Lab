@@ -157,7 +157,7 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Get historical OHLCV data for a list of symbols.

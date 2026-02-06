@@ -6,6 +6,7 @@ import pandas as pd
 from quantrl_lab.data.interface import HistoricalDataCapable, NewsDataCapable
 from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader  # noqa: F401
+from quantrl_lab.data.sources.fmp_loader import FMPDataSource
 from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader  # noqa: F401
 
 
@@ -32,6 +33,7 @@ class DataSourceRegistry:
     DEFAULT_SOURCES = {
         "primary_source": AlpacaDataLoader,
         "news_source": AlpacaDataLoader,
+        "fundamental_source": FMPDataSource,
     }
 
     def __init__(self, sources: Optional[Dict[str, type]] = None, **kwargs: Any) -> None:
@@ -116,7 +118,7 @@ class DataSourceRegistry:
             raise ValueError(f"Source '{name}' already registered. Use override=True to replace.")
         self._factories[name] = factory
 
-    def get_source(self, name: str, **init_kwargs) -> Any:
+    def get_source(self, name: str, **init_kwargs: Any) -> Any:
         """
         Get or create a data source instance (lazy initialization).
 

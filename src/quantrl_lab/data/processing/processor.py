@@ -62,6 +62,8 @@ class ProcessingMetadata:
     fillna_strategy: str = "neutral"
     technical_indicators: List[Union[str, Dict]] = field(default_factory=list)
     news_sentiment_applied: bool = False
+    analyst_data_applied: bool = False
+    market_context_applied: bool = False
     columns_dropped: List[str] = field(default_factory=list)
     original_shape: Tuple[int, int] = (0, 0)
     final_shapes: Dict[str, Tuple[int, int]] = field(default_factory=dict)
@@ -86,6 +88,8 @@ class ProcessingMetadata:
             "fillna_strategy": self.fillna_strategy,
             "technical_indicators": self.technical_indicators,
             "news_sentiment_applied": self.news_sentiment_applied,
+            "analyst_data_applied": self.analyst_data_applied,
+            "market_context_applied": self.market_context_applied,
             "columns_dropped": self.columns_dropped,
             "original_shape": self.original_shape,
             "final_shapes": self.final_shapes,
@@ -144,6 +148,12 @@ class DataProcessor:
         self.fundamental_data = kwargs.get("fundamental_data", None)
         self.macro_data = kwargs.get("macro_data", None)
         self.calendar_event_data = kwargs.get("calendar_event_data", None)
+
+        # === Analyst & Context Data ===
+        self.analyst_grades = kwargs.get("analyst_grades", None)
+        self.analyst_ratings = kwargs.get("analyst_ratings", None)
+        self.sector_performance = kwargs.get("sector_performance", None)
+        self.industry_performance = kwargs.get("industry_performance", None)
 
         # === Sentiment configuration and provider ===
         self.sentiment_config = kwargs.get("sentiment_config", SentimentConfig())
@@ -321,7 +331,9 @@ class DataProcessor:
         """
         from quantrl_lab.data.processing.pipeline import DataPipeline
         from quantrl_lab.data.processing.steps import (
+            AnalystEstimatesStep,
             ColumnCleanupStep,
+            MarketContextStep,
             NumericConversionStep,
             SentimentEnrichmentStep,
             TechnicalIndicatorStep,
@@ -333,7 +345,17 @@ class DataProcessor:
         # 1. Technical Indicators
         pipeline.add_step(TechnicalIndicatorStep(indicators=indicators))
 
-        # 2. Sentiment Enrichment (only if news data available)
+        # 2. Analyst Estimates
+        if self.analyst_grades is not None or self.analyst_ratings is not None:
+            pipeline.add_step(AnalystEstimatesStep(grades_df=self.analyst_grades, ratings_df=self.analyst_ratings))
+
+        # 3. Market Context
+        if self.sector_performance is not None or self.industry_performance is not None:
+            pipeline.add_step(
+                MarketContextStep(sector_perf_df=self.sector_performance, industry_perf_df=self.industry_performance)
+            )
+
+        # 4. Sentiment Enrichment (only if news data available)
         if self.news_data is not None:
             pipeline.add_step(
                 SentimentEnrichmentStep(
@@ -344,12 +366,12 @@ class DataProcessor:
                 )
             )
 
-        # 3. Numeric Conversion
+        # 5. Numeric Conversion
         # Convert specified columns to numeric
         columns_to_convert = kwargs.get("columns_to_convert", None)
         pipeline.add_step(NumericConversionStep(columns=columns_to_convert))
 
-        # 4. Column Cleanup
+        # 6. Column Cleanup
         # If columns_to_drop is passed, use it; otherwise rely on defaults in step
         # Note: We keep date columns if splitting is required later
         columns_to_drop = kwargs.get("columns_to_drop", None)
@@ -370,19 +392,55 @@ class DataProcessor:
 
         processed_data, metadata_obj = pipeline.execute(self.ohlcv_data, symbol=symbol)
 
+        # Update metadata flags
+        if self.analyst_grades is not None or self.analyst_ratings is not None:
+            metadata_obj.analyst_data_applied = True
+        if self.sector_performance is not None or self.industry_performance is not None:
+            metadata_obj.market_context_applied = True
+
         # Handle Data Splitting (Post-Processing)
-        processed_data = processed_data.dropna().reset_index(drop=True)
+        # Debug: Check for columns with all NaN values before dropna
+        verbose = kwargs.get('verbose', False)
+        if verbose:
+            null_counts = processed_data.isnull().sum()
+            all_null_cols = null_counts[null_counts == len(processed_data)]
+            if not all_null_cols.empty:
+                console.print(f"[yellow]⚠️  Warning: Columns with all NaN values: {list(all_null_cols.index)}[/yellow]")
+
+            console.print(f"[cyan]Before dropna: {len(processed_data)} rows[/cyan]")
+            console.print(f"[cyan]Columns in DataFrame: {list(processed_data.columns)}[/cyan]")
+
+        # Only drop rows where OHLCV columns have NaN (keep analyst/context data sparse)
+        # Core OHLCV columns that must not have NaN (case-insensitive)
+        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        col_lower_map = {col.lower(): col for col in processed_data.columns}
+        available_required = [col_lower_map[req] for req in required_cols if req in col_lower_map]
+
+        if verbose:
+            console.print(f"[cyan]Required OHLCV columns to check: {available_required}[/cyan]")
+            if available_required:
+                for col in available_required:
+                    nan_count = processed_data[col].isnull().sum()
+                    console.print(f"[cyan]  {col}: {nan_count} NaN values[/cyan]")
+
+        if available_required:
+            processed_data = processed_data.dropna(subset=available_required).reset_index(drop=True)
+        else:
+            # Fallback: drop rows with any NaN in core price data
+            console.print("[yellow]⚠️  Warning: No OHLCV columns found, falling back to dropna()[/yellow]")
+            processed_data = processed_data.dropna().reset_index(drop=True)
+
+        if verbose:
+            console.print(f"[cyan]After dropna: {len(processed_data)} rows[/cyan]")
 
         if split_config:
             split_data, split_metadata = self._split_data(processed_data, split_config)
 
             # Merge split metadata into pipeline metadata
-            # We modify the object directly or use a helper to merge
             metadata_obj.date_ranges = split_metadata["date_ranges"]
             metadata_obj.final_shapes = split_metadata["final_shapes"]
 
             # Drop date column after splitting if it wasn't supposed to be kept
-            # The cleanup step kept it because keep_date=True
             for key in split_data:
                 # Re-run cleanup to drop date columns now that splitting is done
                 # unless user explicitly asked to keep them via columns_to_drop logic?
@@ -404,10 +462,7 @@ class DataProcessor:
             metadata_obj.final_shapes["full_data"] = processed_data.shape
 
             # If we didn't split, we might still need to drop the date column if it was kept
-            # The ColumnCleanupStep might have dropped it if keep_date=False (default for no split)
-            # But let's ensure consistency with old behavior
             if not keep_date:
-                # already dropped by pipeline if keep_date was False
                 pass
 
             return processed_data, metadata_obj.to_dict()

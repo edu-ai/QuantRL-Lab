@@ -42,6 +42,7 @@ class HuggingFaceConfig:
     max_length: Optional[int] = None
     truncation: bool = True
     top_k: int = 1  # `return_all_scores` is deprecated
+    batch_size: int = 1  # Batch size for inference
 
     # Supported models for validation
     SUPPORTED_MODELS: List[str] = field(
@@ -57,6 +58,8 @@ class HuggingFaceConfig:
         """Validate configuration after initialization."""
         if self.device < -1:
             raise ValueError("device must be -1 (CPU) or >= 0 (GPU)")
+        if self.batch_size < 1:
+            raise ValueError("batch_size must be >= 1")
 
     def to_dict(self) -> Dict:
         """
@@ -71,4 +74,5 @@ class HuggingFaceConfig:
             "max_length": self.max_length,
             "truncation": self.truncation,
             "top_k": self.top_k,
+            "batch_size": self.batch_size,
         }

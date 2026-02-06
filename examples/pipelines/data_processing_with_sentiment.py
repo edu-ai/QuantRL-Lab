@@ -89,6 +89,7 @@ def main():
         device=-1,  # Use CPU (-1) or GPU (0, 1, etc.)
         max_length=512,  # Maximum token length
         truncation=True,  # Truncate long texts
+        batch_size=32,  # Process 32 texts at a time (speedup)
     )
     sentiment_provider = HuggingFaceProvider(hf_config)
 

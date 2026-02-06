@@ -21,7 +21,7 @@ class SentimentFeatureGenerator:
     Example:
         >>> from quantrl_lab.data.processing.features.sentiment import SentimentFeatureGenerator
         >>> from quantrl_lab.data.processing.sentiment import HuggingFaceProvider, HuggingFaceConfig, SentimentConfig
-        >>> provider = HuggingFaceProvider(HuggingFaceConfig())
+        >>> provider = HuggingFaceProvider(HuggingFaceConfig(batch_size=32))
         >>> config = SentimentConfig(text_column="headline", date_column="created_at")
         >>> generator = SentimentFeatureGenerator(provider, config, news_df)
         >>> enriched_df = generator.generate(ohlcv_df)

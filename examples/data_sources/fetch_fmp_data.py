@@ -11,8 +11,6 @@ FMP provides access to:
 Requires API key.
 """
 
-from datetime import datetime, timedelta
-
 from dotenv import load_dotenv
 
 from quantrl_lab.data.sources import FMPDataSource
@@ -38,8 +36,8 @@ def main():
 
     df = loader.get_historical_ohlcv_data(
         symbols="AAPL",
-        start="2024-01-01",
-        end="2024-06-01",
+        start="2025-01-01",
+        end="2026-01-01",
         timeframe="1d",  # Daily data
     )
     print(f"Retrieved {len(df)} rows for AAPL")
@@ -52,8 +50,9 @@ def main():
     print("-" * 40)
 
     # Get last 7 days of intraday data
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=7)
+    # Set fixed date range for consistency
+    start_date = "2025-01-01"
+    end_date = "2026-01-01"
 
     df_intraday = loader.get_historical_ohlcv_data(
         symbols="AAPL",
@@ -93,16 +92,30 @@ def main():
     print(f"Columns: {grades.columns.tolist()}")
     print(grades.head())
 
+    # Frequency checks for grades
+    print("\nGrade Frequencies:")
+    for col in ['newGrade', 'gradingCompany']:
+        if col in grades.columns:
+            print(f"\nTop 5 {col}:")
+            print(grades[col].value_counts().head())
+
     # ------------------------------------------------------------------
     # Example 5: Fetch analyst ratings
     # ------------------------------------------------------------------
     print("\n[5] Historical Analyst Ratings")
     print("-" * 40)
 
-    ratings = loader.get_historical_rating("AAPL", limit=50)
+    ratings = loader.get_historical_rating("AAPL", limit=500)
     print(f"Retrieved {len(ratings)} historical ratings")
     print(f"Columns: {ratings.columns.tolist()}")
     print(ratings.head())
+
+    # Frequency checks for ratings
+    print("\nRating Frequencies:")
+    for col in ['rating', 'ratingRecommendation']:
+        if col in ratings.columns:
+            print(f"\n{col} counts:")
+            print(ratings[col].value_counts())
 
     # ------------------------------------------------------------------
     # Example 6: Fetch company profile
@@ -111,13 +124,14 @@ def main():
     print("-" * 40)
 
     profile = loader.get_company_profile("AAPL")
-    print(f"Retrieved company profile for {profile.iloc[0]['symbol']}")
-    print(f"\nCompany Name: {profile.iloc[0]['companyName']}")
-    print(f"Sector: {profile.iloc[0]['sector']}")
-    print(f"Industry: {profile.iloc[0]['industry']}")
-    print(f"CEO: {profile.iloc[0].get('ceo', 'N/A')}")
-    print(f"Market Cap: ${profile.iloc[0].get('mktCap', 0):,.0f}")
-    print(f"\nAll columns: {profile.columns.tolist()}")
+    if not profile.empty:
+        print(f"Retrieved company profile for {profile.iloc[0].get('symbol', 'Unknown')}")
+        print("\n--- Full Profile Data ---")
+        # Print all fields in the profile
+        for col, val in profile.iloc[0].items():
+            print(f"{col}: {val}")
+    else:
+        print("No profile data found.")
 
     # ------------------------------------------------------------------
     # Example 7: Historical sector performance
@@ -125,8 +139,11 @@ def main():
     print("\n[7] Historical Sector Performance")
     print("-" * 40)
 
-    sector_perf = loader.get_historical_sector_performance("Technology")
+    sector_perf = loader.get_historical_sector_performance("Technology", start=start_date, end=end_date)
     print(f"Retrieved {len(sector_perf)} records for Technology sector")
+    if not sector_perf.empty and 'date' in sector_perf.columns:
+        print(f"Date range: {sector_perf['date'].min()} to {sector_perf['date'].max()}")
+        print(f"Columns: {sector_perf.columns.tolist()}")
     print(sector_perf.head())
 
     # ------------------------------------------------------------------
@@ -135,8 +152,11 @@ def main():
     print("\n[8] Historical Industry Performance")
     print("-" * 40)
 
-    industry_perf = loader.get_historical_industry_performance("Biotechnology")
+    industry_perf = loader.get_historical_industry_performance("Biotechnology", start=start_date, end=end_date)
     print(f"Retrieved {len(industry_perf)} records for Biotechnology industry")
+    if not industry_perf.empty and 'date' in industry_perf.columns:
+        print(f"Date range: {industry_perf['date'].min()} to {industry_perf['date'].max()}")
+        print(f"Columns: {industry_perf.columns.tolist()}")
     print(industry_perf.head())
 
     print("\n" + "=" * 60)

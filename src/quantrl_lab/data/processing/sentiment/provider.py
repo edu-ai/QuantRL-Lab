@@ -43,7 +43,7 @@ class HuggingFaceProvider:
 
     Example:
         >>> from quantrl_lab.data.processing.sentiment import HuggingFaceProvider, SentimentConfig, HuggingFaceConfig
-        >>> provider = HuggingFaceProvider(HuggingFaceConfig(model_name="ProsusAI/finbert"))
+        >>> provider = HuggingFaceProvider(HuggingFaceConfig(model_name="ProsusAI/finbert", batch_size=32))
         >>> config = SentimentConfig(text_column="headline", date_column="created_at")
         >>> sentiment_scores = provider.analyze(news_df, config)
     """
@@ -160,7 +160,11 @@ class HuggingFaceProvider:
                 raise ValueError("No valid text data found for sentiment analysis")
 
             # === Run sentiment analysis ===
-            sentiments = sentiment_pipeline(texts_to_analyze)
+            sentiments = sentiment_pipeline(
+                texts_to_analyze,
+                batch_size=self.hf_config.batch_size,
+                truncation=self.hf_config.truncation,
+            )
 
             # Handle cases where each result might itself be a list
             scores = []

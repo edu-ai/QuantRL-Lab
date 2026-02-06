@@ -343,7 +343,7 @@ class FMPDataSource(
 
         return df
 
-    def get_historical_sector_performance(self, sector: str) -> pd.DataFrame:
+    def get_historical_sector_performance(self, sector: str, start: str = None, end: str = None) -> pd.DataFrame:
         """
         Get historical performance data for a specific market sector.
 
@@ -354,6 +354,8 @@ class FMPDataSource(
             sector: Market sector name (e.g., "Energy", "Technology", "Healthcare",
                 "Financials", "Consumer Cyclical", "Industrials", "Basic Materials",
                 "Consumer Defensive", "Real Estate", "Utilities", "Communication Services")
+            start: Start date in 'YYYY-MM-DD' format (optional, defaults to API default)
+            end: End date in 'YYYY-MM-DD' format (optional, defaults to API default)
 
         Returns:
             pd.DataFrame: Historical sector performance data with columns including:
@@ -366,7 +368,7 @@ class FMPDataSource(
 
         Example:
             >>> source = FMPDataSource()
-            >>> df = source.get_historical_sector_performance("Energy")
+            >>> df = source.get_historical_sector_performance("Energy", start="2024-01-01", end="2024-12-31")
             >>> print(df.head())
         """
         if not sector or not isinstance(sector, str):
@@ -376,6 +378,12 @@ class FMPDataSource(
 
         endpoint = "historical-sector-performance"
         params = {"sector": sector}
+
+        # Add date range if provided
+        if start:
+            params["from"] = start
+        if end:
+            params["to"] = end
 
         # Make API request
         data = self._make_request(endpoint, params)
@@ -407,7 +415,7 @@ class FMPDataSource(
 
         return df
 
-    def get_historical_industry_performance(self, industry: str) -> pd.DataFrame:
+    def get_historical_industry_performance(self, industry: str, start: str = None, end: str = None) -> pd.DataFrame:
         """
         Get historical performance data for a specific industry.
 
@@ -418,6 +426,8 @@ class FMPDataSource(
             industry: Industry name (e.g., "Biotechnology", "Software", "Banks",
                 "Oil & Gas", "Semiconductors", "Insurance", "Auto Manufacturers",
                 "Pharmaceuticals", "Consumer Electronics", "Aerospace & Defense")
+            start: Start date in 'YYYY-MM-DD' format (optional, defaults to API default)
+            end: End date in 'YYYY-MM-DD' format (optional, defaults to API default)
 
         Returns:
             pd.DataFrame: Historical industry performance data with columns including:
@@ -430,7 +440,7 @@ class FMPDataSource(
 
         Example:
             >>> source = FMPDataSource()
-            >>> df = source.get_historical_industry_performance("Biotechnology")
+            >>> df = source.get_historical_industry_performance("Biotechnology", start="2024-01-01", end="2024-12-31")
             >>> print(df.head())
         """
         if not industry or not isinstance(industry, str):
@@ -440,6 +450,12 @@ class FMPDataSource(
 
         endpoint = "historical-industry-performance"
         params = {"industry": industry}
+
+        # Add date range if provided
+        if start:
+            params["from"] = start
+        if end:
+            params["to"] = end
 
         # Make API request
         data = self._make_request(endpoint, params)
