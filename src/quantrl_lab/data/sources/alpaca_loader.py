@@ -227,13 +227,7 @@ class AlpacaDataLoader(
 
     async def _trade_handler(self, trade_data: Trade):
         """Processes incoming trade data."""
-        logger.debug(
-            "Trade: symbol={symbol} price={price} size={size} ts={ts}",
-            symbol=trade_data.symbol,
-            price=trade_data.price,
-            size=trade_data.size,
-            ts=trade_data.timestamp,
-        )
+        logger.debug("Trade: {data}", data=trade_data)
 
     async def subscribe_to_updates(self, symbol: str, data_type: str = "trades") -> None:
         """
