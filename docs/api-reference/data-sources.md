@@ -23,6 +23,11 @@
     options:
         show_root_heading: true
 
+### Financial Modeling Prep (FMP)
+::: quantrl_lab.data.sources.fmp_loader
+    options:
+        show_root_heading: true
+
 ## Registry
 ::: quantrl_lab.data.source_registry
     options:

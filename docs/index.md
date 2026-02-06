@@ -85,11 +85,11 @@ hide:
 ## Architecture at a Glance
 
 ```mermaid
-graph LR
-    A[DataLoader<br/>Alpaca / YFinance / AlphaVantage] --> B[DataProcessor<br/>apply_indicators]
-    B --> C[SingleStockTradingEnv<br/>with injected strategies]
-    C --> D[RL Agent<br/>PPO / SAC / A2C]
-    D -->|actions| C
+flowchart LR
+    A[DataLoader] --> B[DataProcessor]
+    B --> C[SingleStockTradingEnv]
+    C --> D[RL Agent]
+    D --> C
 ```
 
 !!! tip "Quick Start"

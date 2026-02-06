@@ -692,6 +692,252 @@ env = SingleStockTradingEnv(
 
 ---
 
+## Design Decision: Protocols vs Abstract Base Classes (ABC)
+
+### Why We Chose Protocols Over ABC
+
+QuantRL-Lab uses Python's **Protocol** pattern (PEP 544 - Structural Subtyping) instead of traditional Abstract Base Classes (ABC) for defining data source capabilities. This is a deliberate architectural decision with significant benefits for extensibility and maintainability.
+
+### The Problem with ABC-Only Design
+
+If we used only ABC (Abstract Base Classes), we'd face several challenges:
+
+**1. Single Inheritance Limitation**
+```python
+# ❌ ABC-only approach - forces rigid inheritance hierarchy
+from abc import ABC, abstractmethod
+
+class HistoricalDataSource(ABC):
+    @abstractmethod
+    def get_historical_ohlcv_data(self, ...): pass
+
+class LiveDataSource(ABC):
+    @abstractmethod
+    def get_latest_quote(self, ...): pass
+
+# Problem: How do we create a class that supports BOTH?
+class AlpacaDataLoader(HistoricalDataSource, LiveDataSource):  # Multiple inheritance issues!
+    # Diamond problem, method resolution order conflicts, etc.
+    pass
+```
+
+**2. Forced Inheritance Chain**
+```python
+# ❌ ABC-only: Forces all data sources to inherit from base class
+class AlpacaDataLoader(DataSource, HistoricalDataSource, LiveDataSource, NewsDataSource):
+    # Messy inheritance chain
+    # Tightly coupled to base classes
+    # Hard to add new capabilities later
+    pass
+```
+
+**3. Inflexibility for External Integrations**
+```python
+# ❌ ABC-only: Cannot adapt third-party libraries without inheritance
+from some_library import ThirdPartyDataFeed
+
+# This won't work - ThirdPartyDataFeed doesn't inherit from our ABC
+class AdaptedDataSource(ThirdPartyDataFeed, HistoricalDataSource):
+    # Requires modifying third-party code or complex adapter patterns
+    pass
+```
+
+### The Protocol Solution
+
+Protocols solve these problems through **structural subtyping** (duck typing with type safety):
+
+**1. Multiple Capabilities Without Multiple Inheritance**
+```python
+# ✅ Protocol approach - compose capabilities freely
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class HistoricalDataCapable(Protocol):
+    def get_historical_ohlcv_data(self, ...): ...
+
+@runtime_checkable
+class LiveDataCapable(Protocol):
+    def get_latest_quote(self, ...): ...
+
+# Any class with these methods automatically satisfies both protocols!
+class AlpacaDataLoader(DataSource):  # Clean single inheritance
+    def get_historical_ohlcv_data(self, ...): ...  # Satisfies HistoricalDataCapable
+    def get_latest_quote(self, ...): ...  # Satisfies LiveDataCapable
+    # No explicit inheritance of protocols needed!
+
+# Runtime checking works:
+if isinstance(loader, HistoricalDataCapable):  # ✅ True
+    data = loader.get_historical_ohlcv_data(...)
+
+if isinstance(loader, LiveDataCapable):  # ✅ True
+    quote = loader.get_latest_quote(...)
+```
+
+**2. Flexible Capability Composition**
+```python
+# ✅ Different data sources implement different combinations
+class YFinanceDataLoader(DataSource):
+    # Implements: HistoricalDataCapable, FundamentalDataCapable
+    # Does NOT implement: LiveDataCapable, StreamingCapable
+    # No complex inheritance - just has the methods!
+    pass
+
+class AlpacaDataLoader(DataSource):
+    # Implements: HistoricalDataCapable, LiveDataCapable, StreamingCapable, NewsDataCapable
+    # Simply has all the methods - no inheritance complexity
+    pass
+```
+
+**3. Easy External Integration**
+```python
+# ✅ Protocol approach - adapt any class without modifying it
+from some_library import ThirdPartyDataFeed
+
+# If ThirdPartyDataFeed has get_historical_ohlcv_data(), it automatically satisfies the protocol!
+feed = ThirdPartyDataFeed()
+
+if isinstance(feed, HistoricalDataCapable):  # Checks structural compatibility
+    # It works! No inheritance or adapters needed
+    data = feed.get_historical_ohlcv_data(...)
+```
+
+### Hybrid Approach: DataSource ABC + Capability Protocols
+
+QuantRL-Lab uses a **hybrid approach** combining the best of both:
+
+```python
+# Base ABC for common functionality
+class DataSource(ABC):
+    """Base class providing common infrastructure."""
+
+    @property
+    @abstractmethod
+    def source_name(self) -> str:
+        """Every data source must have a name."""
+        pass
+
+    def connect(self) -> None:
+        """Default implementation (can be overridden)."""
+        pass
+
+    @property
+    def supported_features(self) -> List[str]:
+        """Auto-detects which protocols are implemented."""
+        features = []
+        if isinstance(self, HistoricalDataCapable):
+            features.append("historical_bars")
+        if isinstance(self, LiveDataCapable):
+            features.append("live_data")
+        # ... etc
+        return features
+
+# Capability protocols for flexible features
+@runtime_checkable
+class HistoricalDataCapable(Protocol):
+    """Defines WHAT a historical data source can do."""
+    def get_historical_ohlcv_data(self, ...): ...
+
+@runtime_checkable
+class AnalystDataCapable(Protocol):
+    """Defines WHAT an analyst data source can do."""
+    def get_historical_grades(self, ...): ...
+    def get_historical_rating(self, ...): ...
+
+# Concrete implementation
+class FMPDataSource(
+    DataSource,  # Inherits common infrastructure
+    HistoricalDataCapable,  # Declares capability (structural typing)
+    AnalystDataCapable,  # Declares another capability
+):
+    """
+    Inherits base infrastructure from DataSource ABC.
+    Implements multiple capability protocols through structural typing.
+    """
+    def get_historical_ohlcv_data(self, ...):
+        # Implementation satisfies HistoricalDataCapable protocol
+        pass
+
+    def get_historical_grades(self, ...):
+        # Implementation satisfies AnalystDataCapable protocol
+        pass
+```
+
+### Key Benefits in QuantRL-Lab
+
+| Aspect | ABC-Only | Protocol-Based | Our Hybrid Approach |
+|--------|----------|---------------|---------------------|
+| **Multiple Capabilities** | Complex multiple inheritance | ✅ Compose freely | ✅ Best of both |
+| **Extensibility** | Modify base classes | ✅ Add protocols independently | ✅ Add protocols independently |
+| **Type Safety** | ✅ Static checking | ✅ Static + runtime checking | ✅ Static + runtime checking |
+| **Third-Party Integration** | Requires adapters | ✅ Structural compatibility | ✅ Structural compatibility |
+| **Feature Discovery** | Manual implementation | ✅ Runtime `isinstance()` checks | ✅ Auto via `supported_features` |
+| **Common Infrastructure** | ✅ Shared via ABC | Need composition | ✅ Shared via DataSource ABC |
+| **Inheritance Complexity** | ❌ Diamond problem risk | ✅ No inheritance needed | ✅ Single inheritance only |
+
+### Real-World Example: Adding New Capabilities
+
+**Scenario:** FMP adds sector/industry performance data
+
+**ABC-Only Approach (Complex):**
+```python
+# ❌ Would need to modify class hierarchy
+class SectorDataSource(ABC):
+    @abstractmethod
+    def get_historical_sector_performance(self, ...): pass
+
+class FMPDataSource(DataSource, HistoricalDataSource, AnalystDataSource, SectorDataSource):
+    # Messy multiple inheritance chain
+    pass
+```
+
+**Protocol Approach (Simple):**
+```python
+# ✅ Just define a new protocol
+@runtime_checkable
+class SectorDataCapable(Protocol):
+    def get_historical_sector_performance(self, ...): ...
+    def get_historical_industry_performance(self, ...): ...
+
+# Add methods to FMP - it automatically satisfies the protocol!
+class FMPDataSource(DataSource):
+    def get_historical_sector_performance(self, sector):
+        # Implementation
+        pass
+
+    def get_historical_industry_performance(self, industry):
+        # Implementation
+        pass
+
+# No inheritance changes needed - works immediately!
+if isinstance(fmp_loader, SectorDataCapable):  # ✅ True
+    sector_data = fmp_loader.get_historical_sector_performance("Technology")
+```
+
+### When to Use Each Pattern
+
+**Use ABC (Abstract Base Class) when:**
+- ✅ Defining common infrastructure/utilities shared by all implementations
+- ✅ Enforcing a base contract that ALL implementations must follow
+- ✅ Providing default implementations of common methods
+
+**Use Protocol when:**
+- ✅ Defining optional capabilities that only some implementations provide
+- ✅ Enabling multiple capability combinations
+- ✅ Supporting structural subtyping for external integration
+- ✅ Runtime feature detection/discovery
+
+**Our Hybrid Approach:**
+- `DataSource` ABC: Common infrastructure (source_name, connect/disconnect, supported_features)
+- Capability Protocols: Optional features (HistoricalDataCapable, LiveDataCapable, AnalystDataCapable, SectorDataCapable, etc.)
+
+### Further Reading
+
+- [PEP 544 - Protocols: Structural subtyping](https://peps.python.org/pep-0544/)
+- [Python typing documentation - Protocol](https://docs.python.org/3/library/typing.html#typing.Protocol)
+- [Effective Python Item 43: Consider Protocols and Duck Typing](https://effectivepython.com/)
+
+---
+
 ## Protocol Pattern in Action
 
 Structural typing for flexible, decoupled design across data sources and environments. Protocols define "what" an object can do without forcing "how" it inherits.
@@ -713,11 +959,13 @@ graph TB
         P1[HistoricalDataCapable<br/>━━━━━━━━━━━━━━━━<br/>get_historical_ohlcv_data]
         P2[LiveDataCapable<br/>━━━━━━━━━━━━━━<br/>get_latest_quote<br/>get_latest_trade]
         P3[NewsDataCapable<br/>━━━━━━━━━━━━━<br/>get_news_data]
-        P4[StreamingCapable<br/>━━━━━━━━━━━━━<br/>subscribe, start/stop_streaming]
+        P4[StreamingCapable<br/>━━━━━━━━━━━━━<br/>subscribe_to_updates<br/>start_streaming<br/>stop_streaming]
         P5[ConnectionManaged<br/>━━━━━━━━━━━━━━<br/>connect, disconnect, is_connected]
         P6[FundamentalDataCapable<br/>━━━━━━━━━━━━━━━━━<br/>get_fundamental_data]
         P7[MacroDataCapable<br/>━━━━━━━━━━━━━<br/>get_macro_data]
         P8[AnalystDataCapable<br/>━━━━━━━━━━━━━━<br/>get_historical_grades<br/>get_historical_rating]
+        P9[SectorDataCapable<br/>━━━━━━━━━━━━━<br/>get_historical_sector_performance<br/>get_historical_industry_performance]
+        P10[CompanyProfileCapable<br/>━━━━━━━━━━━━━━━━<br/>get_company_profile]
     end
 
     subgraph EnvProtocol["🏪 Environment Protocol"]
@@ -736,13 +984,13 @@ graph TB
     subgraph Implementations["🔧 Concrete Implementations"]
         direction TB
 
-        YF[YfinanceDataloader<br/>━━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           FundamentalDataCapable]
+        YF[YFinanceDataLoader<br/>━━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           FundamentalDataCapable]
 
         ALP[AlpacaDataLoader<br/>━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           LiveDataCapable<br/>           StreamingCapable<br/>           NewsDataCapable<br/>           ConnectionManaged]
 
         AVDL[AlphaVantageDataLoader<br/>━━━━━━━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           FundamentalDataCapable<br/>           MacroDataCapable<br/>           NewsDataCapable]
 
-        FMP[FMPDataSource<br/>━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           AnalystDataCapable]
+        FMP[FMPDataSource<br/>━━━━━━━━━━━<br/>Inherits: DataSource<br/>Implements: HistoricalDataCapable<br/>           AnalystDataCapable<br/>           SectorDataCapable<br/>           CompanyProfileCapable]
 
         TE[TradingEnv<br/>━━━━━━━━━<br/>Implements: TradingEnvProtocol<br/>Has all required attributes<br/>& methods]
     end
@@ -794,6 +1042,8 @@ graph TB
 
     P1 -.->|structural typing| FMP
     P8 -.->|structural typing| FMP
+    P9 -.->|structural typing| FMP
+    P10 -.->|structural typing| FMP
 
     EP -.->|structural typing| TE
 
@@ -821,6 +1071,8 @@ graph TB
     style P6 fill:#ffe0b2,stroke:#f57c00
     style P7 fill:#ffe0b2,stroke:#f57c00
     style P8 fill:#ffe0b2,stroke:#f57c00
+    style P9 fill:#ffe0b2,stroke:#f57c00
+    style P10 fill:#ffe0b2,stroke:#f57c00
 
     style EP fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style EP_ATTRS fill:#e1bee7,stroke:#7b1fa2
@@ -842,6 +1094,7 @@ graph TB
     style B4 fill:#b2dfdb,stroke:#00695c
 
     classDef protocol fill:#ffccbc,stroke:#d84315
+    class P9,P10 protocol
     class P1,P2,P3,P4,P5,P6,P7,P8,EP protocol
 ```
 
@@ -874,7 +1127,7 @@ if isinstance(custom_source, HistoricalDataCapable):
 Centralized, extensible indicator management using decorator-based registration. This pattern eliminates hardcoded indicator lists and makes adding new indicators trivial.
 
 ```mermaid
-graph LR
+flowchart LR
     subgraph Registry["IndicatorRegistry"]
         REG["@register decorator<br/>get() | list_all() | apply()"]
     end

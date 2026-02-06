@@ -75,7 +75,8 @@ Protocols: HistoricalDataCapable, FundamentalDataCapable,
            MacroDataCapable, NewsDataCapable
 
 # FMPDataSource
-Protocols: HistoricalDataCapable, AnalystDataCapable
+Protocols: HistoricalDataCapable, AnalystDataCapable,
+           SectorDataCapable, CompanyProfileCapable
 ```
 
 ### Use Case Recommendations
@@ -94,6 +95,23 @@ Protocols: HistoricalDataCapable, AnalystDataCapable
 
 ## Protocol-Based Architecture
 
+### Why Protocols Instead of ABC?
+
+QuantRL-Lab uses a **hybrid approach** combining Abstract Base Classes (ABC) with Protocol-based capability detection:
+
+- **DataSource ABC**: Provides common infrastructure (source_name, connect/disconnect, supported_features)
+- **Capability Protocols**: Define optional features through structural typing (HistoricalDataCapable, LiveDataCapable, etc.)
+
+**Key advantages of this design:**
+
+1. **Flexible Composition**: Data sources can implement any combination of capabilities without complex multiple inheritance
+2. **No Diamond Problem**: Protocols use structural subtyping, avoiding inheritance conflicts
+3. **Easy Extension**: Add new capabilities by defining new protocols - no need to modify existing class hierarchies
+4. **Runtime Discovery**: Use `isinstance(loader, Protocol)` or `loader.supports_feature()` to check capabilities
+5. **Type Safety**: Static type checkers validate protocol compliance at development time
+
+For a detailed explanation of this architectural decision, see [ARCHITECTURE.md - Design Decision: Protocols vs ABC](ARCHITECTURE.md#design-decision-protocols-vs-abstract-base-classes-abc).
+
 ### Capability Protocols
 
 QuantRL-Lab uses Python protocols (structural typing) to define data source capabilities:
@@ -106,6 +124,8 @@ from quantrl_lab.data.interface import (
     FundamentalDataCapable,
     MacroDataCapable,
     AnalystDataCapable,
+    SectorDataCapable,
+    CompanyProfileCapable,
     StreamingCapable,
     ConnectionManaged,
 )
@@ -177,6 +197,29 @@ def get_macro_data(
 ```python
 def get_historical_grades(symbol: str) -> pd.DataFrame
 def get_historical_rating(symbol: str, limit: int = 100) -> pd.DataFrame
+```
+
+**SectorDataCapable:**
+```python
+def get_historical_sector_performance(sector: str) -> pd.DataFrame
+def get_historical_industry_performance(industry: str) -> pd.DataFrame
+```
+
+**CompanyProfileCapable:**
+```python
+def get_company_profile(symbol: Union[str, List[str]]) -> pd.DataFrame
+```
+
+**StreamingCapable:**
+```python
+async def subscribe_to_updates(
+    self,
+    symbol: str,
+    data_type: str = "trades",
+    **kwargs: Any,
+) -> None
+async def start_streaming() -> None
+async def stop_streaming() -> None
 ```
 
 ---
@@ -412,7 +455,7 @@ Get free key at: https://www.alphavantage.co/support/#api-key
 
 ```python
 from quantrl_lab.data.sources import AlphaVantageDataLoader
-from quantrl_lab.utils.config import FundamentalMetric, MacroIndicator
+from quantrl_lab.data.config import FundamentalMetric, MacroIndicator
 
 # Initialize
 loader = AlphaVantageDataLoader()

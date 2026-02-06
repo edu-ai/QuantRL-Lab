@@ -115,11 +115,11 @@ See [`reward_presets.py`](https://github.com/whanyu1212/QuantRL-Lab/blob/main/sr
     from quantrl_lab.data.sources import YFinanceDataLoader
 
     loader = YFinanceDataLoader()
-    df = loader.fetch_data(
-        symbol="AAPL",
-        start_date="2020-01-01",
-        end_date="2023-12-31",
-        interval="1d"  # (1)!
+    df = loader.get_historical_ohlcv_data(
+        symbols="AAPL",
+        start="2020-01-01",
+        end="2023-12-31",
+        timeframe="1d"  # (1)!
     )
     ```
 
@@ -135,11 +135,11 @@ See [`reward_presets.py`](https://github.com/whanyu1212/QuantRL-Lab/blob/main/sr
         api_key=os.getenv("ALPACA_API_KEY"),
         secret_key=os.getenv("ALPACA_SECRET_KEY")
     )
-    df = loader.fetch_data(
-        symbol="AAPL",
-        start_date="2020-01-01",
-        end_date="2023-12-31",
-        timeframe="1Day"
+    df = loader.get_historical_ohlcv_data(
+        symbols="AAPL",
+        start="2020-01-01",
+        end="2023-12-31",
+        timeframe="1d"
     )
     ```
 
@@ -183,7 +183,7 @@ df = processor.apply_indicators(
 
     # 1. Load data
     loader = YFinanceDataLoader()
-    df = loader.fetch_data(symbol="AAPL", start_date="2020-01-01", end_date="2023-12-31")
+    df = loader.get_historical_ohlcv_data(symbols="AAPL", start="2020-01-01", end="2023-12-31")
 
     # 2. Add indicators
     processor = DataProcessor()
