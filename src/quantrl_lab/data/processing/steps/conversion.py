@@ -5,6 +5,7 @@ from typing import List, Optional
 import pandas as pd
 
 from quantrl_lab.data.config import config
+from quantrl_lab.data.processing.processor import ProcessingMetadata
 
 
 class NumericConversionStep:
@@ -30,19 +31,18 @@ class NumericConversionStep:
         """
         self.columns = columns
 
-    def process(self, data: pd.DataFrame, metadata) -> pd.DataFrame:
+    def process(self, data: pd.DataFrame, metadata: ProcessingMetadata) -> pd.DataFrame:
         """
         Convert specified columns to numeric.
 
         Args:
-            data: Input DataFrame
-            metadata: Processing metadata (not modified)
-
         Returns:
             DataFrame with numeric columns
 
         Raises:
-            ValueError: If columns parameter is invalid type
+        Args:
+            data: Input DataFrame
+            metadata: Processing metadata (not modified)
         """
         df = data.copy()
         columns_to_convert = self.columns

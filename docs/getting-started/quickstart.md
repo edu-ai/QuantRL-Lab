@@ -6,7 +6,9 @@ Train your first trading agent in 5 minutes.
 
 ```python
 from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
-from quantrl_lab.data.processors.processor import DataProcessor
+
+from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
+from quantrl_lab.data.processing.processor import DataProcessor
 from quantrl_lab.environments.stock.env_single_stock import SingleStockTradingEnv
 from quantrl_lab.environments.stock.stock_config import StockTradingConfig
 from quantrl_lab.environments.stock.strategies.actions import StandardMarketActionStrategy
@@ -18,8 +20,8 @@ from stable_baselines3 import PPO
 loader = YFinanceDataLoader()
 df = loader.fetch_data(symbol="AAPL", start_date="2020-01-01", end_date="2023-12-31")
 
-processor = DataProcessor()
-df = processor.apply_indicators(df, indicators=["SMA", "EMA", "RSI", "MACD"])
+processor = DataProcessor(ohlcv_data=df)
+df, metadata = processor.data_processing_pipeline(indicators=["SMA", "EMA", "RSI", "MACD"])
 
 # 2. Define strategies
 action_strategy = StandardMarketActionStrategy()

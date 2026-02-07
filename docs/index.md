@@ -82,16 +82,7 @@ hide:
 
 </div>
 
-## Architecture at a Glance
-
-```mermaid
-flowchart LR
-    A[DataLoader] --> B[DataProcessor]
-    B --> C[SingleStockTradingEnv]
-    C --> D[RL Agent]
-    D --> C
-```
-
+<br>
 !!! tip "Quick Start"
     Install with `uv sync` and train your first agent in a few lines of code.
     See the [Quickstart Guide](getting-started/quickstart.md) for a walkthrough.

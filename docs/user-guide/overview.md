@@ -69,7 +69,7 @@ This architecture enables:
 ```mermaid
 graph TD
     A[DataLoader<br/>Alpaca / YFinance / AlphaVantage] -->|fetch_data| B[DataFrame with OHLCV]
-    B -->|DataProcessor.apply_indicators| C[DataFrame with technical indicators]
+    B -->|DataProcessor.data_processing_pipeline| C[DataFrame with technical indicators]
     C -->|pass to env| D[SingleStockTradingEnv]
     D -->|step delegates to| E[Action / Observation / Reward strategies]
 ```
@@ -119,30 +119,25 @@ config = StockTradingConfig(
 
 ## Backtesting Workflow
 
+train_df = df[:split_idx]
+test_df = df[split_idx:]
 ### 1. Data Preparation
 ```python
 from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
-from quantrl_lab.data.processors.processor import DataProcessor
+from quantrl_lab.data.processing.processor import DataProcessor
 
 loader = YFinanceDataLoader()
 df = loader.fetch_data(symbol="AAPL", start_date="2020-01-01", end_date="2023-12-31")
 
-processor = DataProcessor()
-df = processor.apply_indicators(df, indicators=["SMA", "EMA", "RSI"])
-```
+# Initialize processor with data
+processor = DataProcessor(ohlcv_data=df)
 
-### 2. Train/Test Split
-```python
-split_idx = int(len(df) * 0.8)
-train_df = df[:split_idx]
-test_df = df[split_idx:]
+# Run standard pipeline (indicators + cleanup)
+processed_df, metadata = processor.data_processing_pipeline(
+    indicators=["SMA", "EMA", "RSI"],
+    fillna_strategy="neutral"
+)
 ```
-
-### 3. Strategy Definition
-```python
-from quantrl_lab.environments.stock.strategies import (
-    StandardMarketActionStrategy,
-    PortfolioWithTrendObservation,
     WeightedCompositeReward
 )
 

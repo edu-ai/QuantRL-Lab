@@ -92,7 +92,18 @@ Quick reference guide to all documentation related to the protocol-based archite
 
 ## 📝 Implementation Summaries
 
-### [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
+### [API Reference - Data Sources](api-reference/data-sources.md)
+**Topic:** Auto-generated API documentation for data sources
+
+### [API Reference - Data Processing](api-reference/processing.md)
+**Topic:** Documentation for the DataPipeline, DataProcessor, and ProcessingSteps
+
+**What you'll learn:**
+- How to build custom data processing pipelines
+- Available processing steps (Technical, Sentiment, etc.)
+- Metadata tracking throughout the pipeline
+
+**Read this if:** You are building or customizing feature engineering pipelines
 **Topic:** Complete summary of protocol expansion implementation
 
 **What you'll learn:**

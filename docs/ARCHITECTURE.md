@@ -343,7 +343,6 @@ flowchart TB
         direction TB
 
         POLICY[Policy Network<br/>━━━━━━━━━━<br/>Neural Network<br/>PPO/SAC/A2C]
-
         BUFFER[Experience Buffer<br/>━━━━━━━━━━━━<br/>Transitions<br/>s, a, r, s', done]
 
         LEARN[Learning Algorithm<br/>━━━━━━━━━━━━<br/>Gradient Updates<br/>Policy Optimization]
@@ -402,6 +401,49 @@ flowchart TB
 4. **Environment Data**: Structured state maintained by environment (market history with indicators + portfolio state with holdings/positions)
 5. **RL Agent**: Policy network processes observations, experience buffer stores transitions (s, a, r, s', done), learning algorithm updates weights
 6. **Evaluation**: Performance metrics computed (Sharpe, returns, drawdown, win rate), visualizations generated (equity curves, action distributions), benchmarks compared (buy & hold, equal weight, index)
+
+### Processing Pipeline Design (Builder Pattern)
+
+The data processing logic uses the **Builder Pattern** to construct flexible, composable pipelines.
+
+```mermaid
+classDiagram
+    class DataPipeline {
+        -steps: List[ProcessingStep]
+        +add_step(step)
+        +execute(df)
+    }
+
+    class ProcessingStep {
+        <<interface>>
+        +process(df, metadata)
+    }
+
+    class TechnicalIndicatorStep {
+        +process()
+    }
+
+    class SentimentEnrichmentStep {
+        +process()
+    }
+
+    DataPipeline o-- ProcessingStep
+    ProcessingStep <|-- TechnicalIndicatorStep
+    ProcessingStep <|-- SentimentEnrichmentStep
+```
+
+**Key Components:**
+- **DataPipeline**: Orchestrator that executes steps sequentially and tracks metadata.
+- **ProcessingStep**: Single-responsibility units (e.g., `TechnicalIndicatorStep`, `AnalystEstimatesStep`).
+- **ProcessingMetadata**: Context object passed through the pipeline to track changes (dropped columns, applied features).
+
+This allows for dynamic pipeline construction:
+```python
+pipeline = (DataPipeline()
+    .add_step(TechnicalIndicatorStep(indicators=["SMA"]))
+    .add_step(SentimentEnrichmentStep(news_data=news))
+    .execute(df))
+```
 
 ---
 

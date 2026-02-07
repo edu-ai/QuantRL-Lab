@@ -146,7 +146,7 @@ See [`reward_presets.py`](https://github.com/whanyu1212/QuantRL-Lab/blob/main/sr
 ### Technical Indicators
 
 ```python
-from quantrl_lab.data.processors.processor import DataProcessor
+from quantrl_lab.data.processing.processor import DataProcessor
 from quantrl_lab.data.indicators import IndicatorRegistry
 
 # List available indicators
@@ -154,9 +154,9 @@ IndicatorRegistry.list_all()
 # Output: ['SMA', 'EMA', 'RSI', 'MACD', 'BB', 'ATR', ...]
 
 # Apply indicators
-processor = DataProcessor()
-df = processor.apply_indicators(
-    df,
+processor = DataProcessor(ohlcv_data=df)
+df, metadata = processor.data_processing_pipeline(
+    indicators=["SMA", "EMA", "RSI", "MACD"],
     indicators=["SMA", "EMA", "RSI", "MACD"],
     sma_window=20,   # (1)!
     ema_window=12,
@@ -172,7 +172,7 @@ df = processor.apply_indicators(
 
     ```python
     from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
-    from quantrl_lab.data.processors.processor import DataProcessor
+    from quantrl_lab.data.processing.processor import DataProcessor
     from quantrl_lab.environments.stock.env_single_stock import SingleStockTradingEnv
     from quantrl_lab.environments.stock.stock_config import StockTradingConfig
     from quantrl_lab.environments.stock.strategies import (
@@ -186,8 +186,8 @@ df = processor.apply_indicators(
     df = loader.get_historical_ohlcv_data(symbols="AAPL", start="2020-01-01", end="2023-12-31")
 
     # 2. Add indicators
-    processor = DataProcessor()
-    df = processor.apply_indicators(df, indicators=["SMA", "EMA", "RSI"])
+    processor = DataProcessor(ohlcv_data=df)
+    df, metadata = processor.data_processing_pipeline(indicators=["SMA", "EMA", "RSI"])
 
     # 3. Configure environment
     config = StockTradingConfig(

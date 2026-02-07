@@ -1,7 +1,7 @@
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import yaml
@@ -296,13 +296,12 @@ class DataProcessor:
         indicators: Optional[List[Union[str, Dict]]] = None,
         fillna_strategy: str = "neutral",
         split_config: Optional[Dict] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Tuple[Union[pd.DataFrame, Dict[str, pd.DataFrame]], Dict]:
         """
         Main data processing pipeline.
 
         Applies technical indicators, sentiment analysis, and data transformations
-        to OHLCV data. Optionally splits data into train/test/validation sets.
 
         This method uses the DataPipeline infrastructure internally.
 
