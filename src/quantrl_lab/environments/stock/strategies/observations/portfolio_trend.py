@@ -8,9 +8,9 @@ from gymnasium import spaces
 
 # Use TYPE_CHECKING to prevent circular imports
 if TYPE_CHECKING:
-    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
-from quantrl_lab.environments.strategies.observations import (
+from quantrl_lab.environments.core.interfaces import (
     BaseObservationStrategy,
 )
 from quantrl_lab.environments.utils import calc_trend
@@ -116,8 +116,8 @@ class PortfolioWithTrendObservation(BaseObservationStrategy):
             avg_entry_price = np.mean(entry_prices) if entry_prices else current_price
             unrealized_pl_pct = (current_price - avg_entry_price) / avg_entry_price if avg_entry_price > 1e-9 else 0.0
 
-            sl_prices = [o["price"] for o in env.portfolio.stop_loss_orders]
-            tp_prices = [o["price"] for o in env.portfolio.take_profit_orders]
+            sl_prices = [o.price for o in env.portfolio.stop_loss_orders]
+            tp_prices = [o.price for o in env.portfolio.take_profit_orders]
             if sl_prices and tp_prices:
                 avg_stop_price = np.mean(sl_prices)
                 avg_target_price = np.mean(tp_prices)

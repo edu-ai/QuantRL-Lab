@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from quantrl_lab.data.exceptions import AuthenticationError, InvalidParametersError
 from quantrl_lab.data.interface import (
     FundamentalDataCapable,
     HistoricalDataCapable,
@@ -19,48 +20,48 @@ from quantrl_lab.data.interface import (
 from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 from quantrl_lab.data.sources.fmp_loader import FMPDataSource
-from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader
+from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
 
-class TestYfinanceDataloader:
-    """Tests for YfinanceDataloader class."""
+class TestYFinanceDataLoader:
+    """Tests for YFinanceDataLoader class."""
 
     def test_implements_required_protocols(self):
-        """Test that YfinanceDataloader implements required
+        """Test that YFinanceDataLoader implements required
         protocols."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
         assert isinstance(loader, HistoricalDataCapable)
         assert isinstance(loader, FundamentalDataCapable)
 
     def test_source_name(self):
         """Test that source_name returns expected value."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
         assert loader.source_name == "Yahoo Finance"
 
     def test_is_connected_returns_true(self):
         """Test that is_connected returns True (uses HTTP requests)."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
         assert loader.is_connected() is True
 
     def test_connect_does_not_raise(self):
         """Test that connect doesn't raise an exception."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         loader.connect()  # Should not raise
 
     def test_disconnect_does_not_raise(self):
         """Test that disconnect doesn't raise an exception."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         loader.disconnect()  # Should not raise
 
     def test_get_historical_ohlcv_data_validates_symbols_type(self):
         """Test that get_historical_ohlcv_data validates symbols
         parameter type."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
-        with pytest.raises(TypeError, match="'symbols' must be a string or a list of strings"):
+        with pytest.raises(TypeError, match="symbols must be a string or list of strings"):
             loader.get_historical_ohlcv_data(
                 symbols=123,  # Invalid type
                 start="2023-01-01",
@@ -70,9 +71,9 @@ class TestYfinanceDataloader:
     def test_get_historical_ohlcv_data_validates_list_elements(self):
         """Test that get_historical_ohlcv_data validates list elements
         are strings."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
-        with pytest.raises(ValueError, match="All elements in 'symbols' must be strings"):
+        with pytest.raises(ValueError, match="All elements in symbols list must be strings"):
             loader.get_historical_ohlcv_data(
                 symbols=["AAPL", 123],  # Mixed types
                 start="2023-01-01",
@@ -82,9 +83,9 @@ class TestYfinanceDataloader:
     def test_get_historical_ohlcv_data_validates_interval(self):
         """Test that get_historical_ohlcv_data validates interval
         parameter."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid interval"):
+        with pytest.raises(InvalidParametersError, match="Invalid interval"):
             loader.get_historical_ohlcv_data(
                 symbols="AAPL",
                 start="2023-01-01",
@@ -94,16 +95,16 @@ class TestYfinanceDataloader:
 
     def test_get_historical_ohlcv_data_validates_date_order(self):
         """Test that get_historical_ohlcv_data validates start < end."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
-        with pytest.raises(ValueError, match="Start date should be before end date"):
+        with pytest.raises(ValueError, match="Start date .* must be before or equal to end date"):
             loader.get_historical_ohlcv_data(
                 symbols="AAPL",
                 start="2023-12-31",
                 end="2023-01-01",
             )
 
-    @patch("quantrl_lab.data.sources.yfinance.yf.Ticker")
+    @patch("quantrl_lab.data.sources.yfinance_loader.yf.Ticker")
     def test_get_historical_ohlcv_data_returns_dataframe(self, mock_ticker):
         """Test that get_historical_ohlcv_data returns a DataFrame."""
         # Setup mock
@@ -122,7 +123,7 @@ class TestYfinanceDataloader:
         mock_ticker_instance.history.return_value = mock_history
         mock_ticker.return_value = mock_ticker_instance
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         result = loader.get_historical_ohlcv_data(
             symbols="AAPL",
             start="2023-01-01",
@@ -132,7 +133,7 @@ class TestYfinanceDataloader:
         assert isinstance(result, pd.DataFrame)
         assert "Symbol" in result.columns
 
-    @patch("quantrl_lab.data.sources.yfinance.yf.Ticker")
+    @patch("quantrl_lab.data.sources.yfinance_loader.yf.Ticker")
     def test_get_fundamental_data_returns_dataframe(self, mock_ticker):
         """Test that get_fundamental_data returns a DataFrame."""
         # Setup mocks for income statement, cash flow, and balance sheet
@@ -146,7 +147,7 @@ class TestYfinanceDataloader:
         mock_ticker_instance.get_balance_sheet.return_value = mock_balance.T
         mock_ticker.return_value = mock_ticker_instance
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         result = loader.get_fundamental_data("AAPL")
 
         assert isinstance(result, pd.DataFrame)
@@ -158,8 +159,8 @@ class TestAlpacaDataLoader:
     """Tests for AlpacaDataLoader class."""
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_implements_required_protocols(self, mock_stream, mock_client):
         """Test that AlpacaDataLoader implements required protocols."""
         # Reset singleton for testing
@@ -172,8 +173,8 @@ class TestAlpacaDataLoader:
         assert isinstance(loader, NewsDataCapable)
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_source_name(self, mock_stream, mock_client):
         """Test that source_name returns expected value."""
         AlpacaDataLoader._stock_stream_client_instance = None
@@ -182,8 +183,8 @@ class TestAlpacaDataLoader:
         assert loader.source_name == "Alpaca"
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_is_connected_with_valid_credentials(self, mock_stream, mock_client):
         """Test is_connected returns True with valid credentials."""
         AlpacaDataLoader._stock_stream_client_instance = None
@@ -191,8 +192,8 @@ class TestAlpacaDataLoader:
 
         assert loader.is_connected() is True
 
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_is_connected_without_client(self, mock_stream, mock_client):
         """Test is_connected returns False when historical client is
         None."""
@@ -205,8 +206,8 @@ class TestAlpacaDataLoader:
         assert loader.is_connected() is False
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_connect_raises_without_credentials(self, mock_stream, mock_client):
         """Test that connect raises ValueError without credentials."""
         AlpacaDataLoader._stock_stream_client_instance = None
@@ -214,12 +215,12 @@ class TestAlpacaDataLoader:
         loader.api_key = None
         loader.secret_key = None
 
-        with pytest.raises(ValueError, match="Alpaca API credentials not provided"):
+        with pytest.raises(AuthenticationError, match="Alpaca API credentials not provided"):
             loader.connect()
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_get_historical_ohlcv_data_converts_string_to_list(self, mock_stream, mock_client):
         """Test that single symbol string is converted to list."""
         AlpacaDataLoader._stock_stream_client_instance = None
@@ -253,9 +254,9 @@ class TestAlpacaDataLoader:
         assert isinstance(result, pd.DataFrame)
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
-    @patch("quantrl_lab.data.sources.alpaca.requests.get")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.requests.get")
     def test_get_news_data_returns_dataframe(self, mock_requests, mock_stream, mock_client):
         """Test that get_news_data returns a DataFrame."""
         AlpacaDataLoader._stock_stream_client_instance = None
@@ -283,6 +284,43 @@ class TestAlpacaDataLoader:
         )
 
         assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        assert result.iloc[0]["headline"] == "Test headline"
+
+    @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
+    @patch("quantrl_lab.data.sources.alpaca_loader.requests.get")
+    def test_get_news_data_silent_errors(self, mock_requests):
+        """Test that silent_errors=True suppresses exceptions."""
+        import requests
+
+        # Simulate connection error
+        mock_requests.side_effect = requests.exceptions.RequestException("Connection failed")
+
+        loader = AlpacaDataLoader()
+
+        # Should not raise exception, returns empty DataFrame
+        result = loader.get_news_data(symbols="AAPL", start="2023-01-01", silent_errors=True)
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+
+    @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
+    @patch("quantrl_lab.data.sources.alpaca_loader.requests.get")
+    def test_get_news_data_raises_without_silent_errors(self, mock_requests):
+        """Test that silent_errors=False (default) logs error but
+        doesn't crash loop, returns empty if all fail."""
+        import requests
+
+        mock_requests.side_effect = requests.exceptions.RequestException("Connection failed")
+
+        loader = AlpacaDataLoader()
+
+        # The current implementation catches Exception and logs ERROR, then breaks.
+        # It returns an empty DataFrame if no news collected.
+        result = loader.get_news_data(symbols="AAPL", start="2023-01-01", silent_errors=False)
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
 
 
 class TestAlphaVantageDataLoader:
@@ -326,7 +364,7 @@ class TestAlphaVantageDataLoader:
         """Test that get_historical_ohlcv_data validates timeframe."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Unsupported timeframe"):
+        with pytest.raises(InvalidParametersError, match="Unsupported timeframe"):
             loader.get_historical_ohlcv_data(
                 symbols="AAPL",
                 start="2023-01-01",
@@ -335,7 +373,7 @@ class TestAlphaVantageDataLoader:
             )
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.alpha_vantage.requests.get")
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_get_historical_ohlcv_data_daily(self, mock_requests):
         """Test get_historical_ohlcv_data with daily timeframe."""
         # Setup mock response
@@ -365,7 +403,7 @@ class TestAlphaVantageDataLoader:
         assert isinstance(result, pd.DataFrame)
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.alpha_vantage.requests.get")
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_get_historical_ohlcv_data_intraday(self, mock_requests):
         """Test get_historical_ohlcv_data with intraday timeframe."""
         # Setup mock response
@@ -399,7 +437,7 @@ class TestAlphaVantageDataLoader:
         """Test that _get_real_gdp_data validates interval parameter."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid interval"):
+        with pytest.raises(InvalidParametersError, match="Invalid interval"):
             loader._get_real_gdp_data(interval="invalid")
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
@@ -408,7 +446,7 @@ class TestAlphaVantageDataLoader:
         parameter."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid interval"):
+        with pytest.raises(InvalidParametersError, match="Invalid interval"):
             loader._get_treasury_yield_data(interval="invalid")
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
@@ -417,7 +455,7 @@ class TestAlphaVantageDataLoader:
         parameter."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid maturity"):
+        with pytest.raises(InvalidParametersError, match="Invalid maturity"):
             loader._get_treasury_yield_data(maturity="invalid")
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
@@ -425,7 +463,7 @@ class TestAlphaVantageDataLoader:
         """Test that _get_cpi_data validates interval parameter."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid interval"):
+        with pytest.raises(InvalidParametersError, match="Invalid interval"):
             loader._get_cpi_data(interval="invalid")
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
@@ -434,11 +472,11 @@ class TestAlphaVantageDataLoader:
         parameter."""
         loader = AlphaVantageDataLoader()
 
-        with pytest.raises(ValueError, match="Invalid interval"):
+        with pytest.raises(InvalidParametersError, match="Invalid interval"):
             loader._get_federal_funds_rate_data(interval="invalid")
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.alpha_vantage.requests.get")
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_make_api_request_handles_rate_limit(self, mock_requests):
         """Test that _make_api_request handles rate limit responses."""
         # First call returns rate limit note, second succeeds
@@ -460,7 +498,7 @@ class TestAlphaVantageDataLoader:
         assert result == {"data": "test"}
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
-    @patch("quantrl_lab.data.sources.alpha_vantage.requests.get")
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_make_api_request_handles_error_message(self, mock_requests):
         """Test that _make_api_request handles error message
         responses."""
@@ -481,8 +519,8 @@ class TestDataSourceRegistry:
     """Tests for DataSourceRegistry class."""
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_default_sources_initialized(self, mock_stream, mock_client):
         """Test that default sources are initialized."""
         from quantrl_lab.data.source_registry import DataSourceRegistry
@@ -494,8 +532,8 @@ class TestDataSourceRegistry:
         assert hasattr(registry, "news_source")
 
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
-    @patch("quantrl_lab.data.sources.alpaca.StockHistoricalDataClient")
-    @patch("quantrl_lab.data.sources.alpaca.StockDataStream")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_get_historical_ohlcv_data_delegates_to_primary_source(self, mock_stream, mock_client):
         """Test that get_historical_ohlcv_data delegates to primary
         source."""
@@ -552,7 +590,7 @@ class TestFMPDataSource:
         """Test that initialization raises ValueError if no API key is
         provided."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="FMP API key must be provided"):
+            with pytest.raises(AuthenticationError, match="FMP API key must be provided"):
                 FMPDataSource()
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
@@ -753,10 +791,10 @@ class TestFMPDataSource:
         parameter."""
         loader = FMPDataSource()
 
-        with pytest.raises(ValueError, match="Sector must be a non-empty string"):
+        with pytest.raises(InvalidParametersError, match="Sector must be a non-empty string"):
             loader.get_historical_sector_performance("")
 
-        with pytest.raises(ValueError, match="Sector must be a non-empty string"):
+        with pytest.raises(InvalidParametersError, match="Sector must be a non-empty string"):
             loader.get_historical_sector_performance(None)
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
@@ -806,10 +844,10 @@ class TestFMPDataSource:
         parameter."""
         loader = FMPDataSource()
 
-        with pytest.raises(ValueError, match="Industry must be a non-empty string"):
+        with pytest.raises(InvalidParametersError, match="Industry must be a non-empty string"):
             loader.get_historical_industry_performance("")
 
-        with pytest.raises(ValueError, match="Industry must be a non-empty string"):
+        with pytest.raises(InvalidParametersError, match="Industry must be a non-empty string"):
             loader.get_historical_industry_performance(None)
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})

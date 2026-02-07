@@ -1,5 +1,5 @@
-from quantrl_lab.environments.strategies.observations import (  # noqa: F401
+from quantrl_lab.environments.core.interfaces import (  # noqa: F401
     BaseObservationStrategy,
 )
 
-from .portfolio_w_trend_observation import PortfolioWithTrendObservation  # noqa: F401
+from .portfolio_trend import PortfolioWithTrendObservation  # noqa: F401

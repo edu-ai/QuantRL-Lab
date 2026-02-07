@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from quantrl_lab.environments.strategies.rewards import (
+from quantrl_lab.environments.core.interfaces import (
     BaseRewardStrategy,
 )
 
 if TYPE_CHECKING:
-    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
 
 class WeightedCompositeReward(BaseRewardStrategy):

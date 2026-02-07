@@ -10,66 +10,79 @@ from unittest.mock import patch
 
 from quantrl_lab.data.interface import (
     AnalystDataCapable,
+    CompanyProfileCapable,
     ConnectionManaged,
     FundamentalDataCapable,
     HistoricalDataCapable,
     LiveDataCapable,
     MacroDataCapable,
     NewsDataCapable,
+    SectorDataCapable,
     StreamingCapable,
 )
 from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 from quantrl_lab.data.sources.fmp_loader import FMPDataSource
-from quantrl_lab.data.sources.yfinance_loader import YfinanceDataloader
+from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
 
 class TestYfinanceProtocols:
-    """Protocol conformance tests for YfinanceDataloader."""
+    """Protocol conformance tests for YFinanceDataLoader."""
 
     def test_implements_historical_data_protocol(self):
-        """YfinanceDataloader should implement HistoricalDataCapable."""
-        loader = YfinanceDataloader()
+        """YFinanceDataLoader should implement HistoricalDataCapable."""
+        loader = YFinanceDataLoader()
         assert isinstance(loader, HistoricalDataCapable)
         assert hasattr(loader, "get_historical_ohlcv_data")
 
     def test_implements_fundamental_data_protocol(self):
-        """YfinanceDataloader should implement
+        """YFinanceDataLoader should implement
         FundamentalDataCapable."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         assert isinstance(loader, FundamentalDataCapable)
         assert hasattr(loader, "get_fundamental_data")
 
     def test_does_not_implement_live_data_protocol(self):
-        """YfinanceDataloader should NOT implement LiveDataCapable."""
-        loader = YfinanceDataloader()
+        """YFinanceDataLoader should NOT implement LiveDataCapable."""
+        loader = YFinanceDataLoader()
         assert not isinstance(loader, LiveDataCapable)
 
     def test_does_not_implement_news_protocol(self):
-        """YfinanceDataloader should NOT implement NewsDataCapable."""
-        loader = YfinanceDataloader()
+        """YFinanceDataLoader should NOT implement NewsDataCapable."""
+        loader = YFinanceDataLoader()
         assert not isinstance(loader, NewsDataCapable)
 
     def test_does_not_implement_streaming_protocol(self):
-        """YfinanceDataloader should NOT implement StreamingCapable."""
-        loader = YfinanceDataloader()
+        """YFinanceDataLoader should NOT implement StreamingCapable."""
+        loader = YFinanceDataLoader()
         assert not isinstance(loader, StreamingCapable)
 
     def test_does_not_implement_macro_data_protocol(self):
-        """YfinanceDataloader should NOT implement MacroDataCapable."""
-        loader = YfinanceDataloader()
+        """YFinanceDataLoader should NOT implement MacroDataCapable."""
+        loader = YFinanceDataLoader()
         assert not isinstance(loader, MacroDataCapable)
 
     def test_does_not_implement_analyst_data_protocol(self):
-        """YfinanceDataloader should NOT implement
+        """YFinanceDataLoader should NOT implement
         AnalystDataCapable."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         assert not isinstance(loader, AnalystDataCapable)
+
+    def test_does_not_implement_sector_data_protocol(self):
+        """YFinanceDataLoader should NOT implement SectorDataCapable."""
+        loader = YFinanceDataLoader()
+        assert not isinstance(loader, SectorDataCapable)
+
+    def test_does_not_implement_company_profile_protocol(self):
+        """YFinanceDataLoader should NOT implement
+        CompanyProfileCapable."""
+        loader = YFinanceDataLoader()
+        assert not isinstance(loader, CompanyProfileCapable)
 
     def test_supported_features_accuracy(self):
         """supported_features property should reflect actual
         capabilities."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         features = loader.supported_features
 
         assert "historical_bars" in features
@@ -79,6 +92,8 @@ class TestYfinanceProtocols:
         assert "streaming" not in features
         assert "macro_data" not in features
         assert "analyst_data" not in features
+        assert "sector_data" not in features
+        assert "company_profile" not in features
 
 
 class TestAlpacaProtocols:
@@ -123,7 +138,7 @@ class TestAlpacaProtocols:
         AlpacaDataLoader._stock_stream_client_instance = None
         loader = AlpacaDataLoader()
         assert isinstance(loader, StreamingCapable)
-        assert hasattr(loader, "subscribe")
+        assert hasattr(loader, "subscribe_to_updates")
         assert hasattr(loader, "start_streaming")
         assert hasattr(loader, "stop_streaming")
 
@@ -170,6 +185,25 @@ class TestAlpacaProtocols:
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
     @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
     @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
+    def test_does_not_implement_sector_data_protocol(self, mock_stream, mock_client):
+        """AlpacaDataLoader should NOT implement SectorDataCapable."""
+        AlpacaDataLoader._stock_stream_client_instance = None
+        loader = AlpacaDataLoader()
+        assert not isinstance(loader, SectorDataCapable)
+
+    @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
+    def test_does_not_implement_company_profile_protocol(self, mock_stream, mock_client):
+        """AlpacaDataLoader should NOT implement
+        CompanyProfileCapable."""
+        AlpacaDataLoader._stock_stream_client_instance = None
+        loader = AlpacaDataLoader()
+        assert not isinstance(loader, CompanyProfileCapable)
+
+    @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
+    @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
     def test_supported_features_accuracy(self, mock_stream, mock_client):
         """supported_features property should reflect actual
         capabilities."""
@@ -185,6 +219,8 @@ class TestAlpacaProtocols:
         assert "fundamental_data" not in features
         assert "macro_data" not in features
         assert "analyst_data" not in features
+        assert "sector_data" not in features
+        assert "company_profile" not in features
 
 
 class TestAlphaVantageProtocols:
@@ -242,6 +278,20 @@ class TestAlphaVantageProtocols:
         assert not isinstance(loader, AnalystDataCapable)
 
     @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
+    def test_does_not_implement_sector_data_protocol(self):
+        """AlphaVantageDataLoader should NOT implement
+        SectorDataCapable."""
+        loader = AlphaVantageDataLoader()
+        assert not isinstance(loader, SectorDataCapable)
+
+    @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
+    def test_does_not_implement_company_profile_protocol(self):
+        """AlphaVantageDataLoader should NOT implement
+        CompanyProfileCapable."""
+        loader = AlphaVantageDataLoader()
+        assert not isinstance(loader, CompanyProfileCapable)
+
+    @patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test_key"})
     def test_supported_features_accuracy(self):
         """supported_features property should reflect actual
         capabilities."""
@@ -255,6 +305,8 @@ class TestAlphaVantageProtocols:
         assert "live_data" not in features
         assert "streaming" not in features
         assert "analyst_data" not in features
+        assert "sector_data" not in features
+        assert "company_profile" not in features
 
 
 class TestFMPProtocols:
@@ -274,6 +326,21 @@ class TestFMPProtocols:
         assert isinstance(loader, AnalystDataCapable)
         assert hasattr(loader, "get_historical_grades")
         assert hasattr(loader, "get_historical_rating")
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_implements_sector_data_protocol(self):
+        """FMPDataSource should implement SectorDataCapable."""
+        loader = FMPDataSource()
+        assert isinstance(loader, SectorDataCapable)
+        assert hasattr(loader, "get_historical_sector_performance")
+        assert hasattr(loader, "get_historical_industry_performance")
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_implements_company_profile_protocol(self):
+        """FMPDataSource should implement CompanyProfileCapable."""
+        loader = FMPDataSource()
+        assert isinstance(loader, CompanyProfileCapable)
+        assert hasattr(loader, "get_company_profile")
 
     @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
     def test_does_not_implement_live_data_protocol(self):
@@ -314,6 +381,8 @@ class TestFMPProtocols:
 
         assert "historical_bars" in features
         assert "analyst_data" in features
+        assert "sector_data" in features
+        assert "company_profile" in features
         assert "live_data" not in features
         assert "news" not in features
         assert "streaming" not in features
@@ -327,7 +396,7 @@ class TestProtocolMethodSignatures:
     def test_historical_data_protocol_signature(self):
         """HistoricalDataCapable methods should have expected
         signatures."""
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
 
         # Check method exists and is callable
         assert callable(getattr(loader, "get_historical_ohlcv_data", None))
@@ -398,6 +467,39 @@ class TestProtocolMethodSignatures:
         assert "symbol" in params
         assert "limit" in params
 
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_sector_data_protocol_signature(self):
+        """SectorDataCapable methods should have expected signatures."""
+        loader = FMPDataSource()
+
+        # Check get_historical_sector_performance
+        assert callable(getattr(loader, "get_historical_sector_performance", None))
+        import inspect
+
+        sig = inspect.signature(loader.get_historical_sector_performance)
+        params = list(sig.parameters.keys())
+        assert "sector" in params
+
+        # Check get_historical_industry_performance
+        assert callable(getattr(loader, "get_historical_industry_performance", None))
+        sig = inspect.signature(loader.get_historical_industry_performance)
+        params = list(sig.parameters.keys())
+        assert "industry" in params
+
+    @patch.dict("os.environ", {"FMP_API_KEY": "test_key"})
+    def test_company_profile_protocol_signature(self):
+        """CompanyProfileCapable methods should have expected
+        signatures."""
+        loader = FMPDataSource()
+
+        # Check get_company_profile
+        assert callable(getattr(loader, "get_company_profile", None))
+        import inspect
+
+        sig = inspect.signature(loader.get_company_profile)
+        params = list(sig.parameters.keys())
+        assert "symbol" in params
+
     @patch.dict("os.environ", {"ALPACA_API_KEY": "test_key", "ALPACA_SECRET_KEY": "test_secret"})
     @patch("quantrl_lab.data.sources.alpaca_loader.StockHistoricalDataClient")
     @patch("quantrl_lab.data.sources.alpaca_loader.StockDataStream")
@@ -427,8 +529,8 @@ class TestSupportsFeaturesMethod:
     """Test the supports_feature() helper method."""
 
     def test_yfinance_supports_feature(self):
-        """Test YfinanceDataloader supports_feature method."""
-        loader = YfinanceDataloader()
+        """Test YFinanceDataLoader supports_feature method."""
+        loader = YFinanceDataLoader()
 
         assert loader.supports_feature("historical_bars") is True
         assert loader.supports_feature("fundamental_data") is True
@@ -470,6 +572,8 @@ class TestSupportsFeaturesMethod:
 
         assert loader.supports_feature("historical_bars") is True
         assert loader.supports_feature("analyst_data") is True
+        assert loader.supports_feature("sector_data") is True
+        assert loader.supports_feature("company_profile") is True
         assert loader.supports_feature("live_data") is False
         assert loader.supports_feature("news") is False
         assert loader.supports_feature("fundamental_data") is False

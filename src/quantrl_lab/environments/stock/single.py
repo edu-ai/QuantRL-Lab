@@ -4,18 +4,14 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 
-from quantrl_lab.environments.base.actions import Actions
-from quantrl_lab.environments.stock.stock_config import SingleStockEnvConfig
-from quantrl_lab.environments.stock.stock_portfolio import StockPortfolio
-from quantrl_lab.environments.strategies.actions import (
+from quantrl_lab.environments.core.interfaces import (
     BaseActionStrategy,
-)
-from quantrl_lab.environments.strategies.observations import (
     BaseObservationStrategy,
-)
-from quantrl_lab.environments.strategies.rewards import (
     BaseRewardStrategy,
 )
+from quantrl_lab.environments.core.types import Actions
+from quantrl_lab.environments.stock.components.config import SingleStockEnvConfig
+from quantrl_lab.environments.stock.components.portfolio import StockPortfolio
 
 
 class SingleStockTradingEnv(gym.Env):
@@ -99,9 +95,9 @@ class SingleStockTradingEnv(gym.Env):
         # Initialize the portfolio
         self.portfolio = StockPortfolio(
             initial_balance=config.initial_balance,
-            transaction_cost_pct=config.transaction_cost_pct,
-            slippage=config.slippage,
-            order_expiration_steps=config.order_expiration_steps,
+            transaction_cost_pct=config.simulation.transaction_cost_pct,
+            slippage=config.simulation.slippage,
+            order_expiration_steps=config.simulation.order_expiration_steps,
         )
         # TODO: consider other ways to handle expiration, e.g., GTC etc.
 
@@ -127,7 +123,7 @@ class SingleStockTradingEnv(gym.Env):
         # ================================================================
 
         # === Initialize some environment state variables ===
-        self.reward_clip_range = config.reward_clip_range
+        self.reward_clip_range = config.rewards.clip_range
         self.prev_portfolio_value = 0.0
         self.action_type = None
         self.decoded_action_info = {}

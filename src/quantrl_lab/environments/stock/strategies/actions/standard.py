@@ -5,16 +5,16 @@ from typing import TYPE_CHECKING, Any, Dict, Tuple
 import gymnasium as gym
 import numpy as np
 
-from quantrl_lab.environments.base.actions import Actions
-from quantrl_lab.environments.strategies.actions import (
+from quantrl_lab.environments.core.interfaces import (
     BaseActionStrategy,
 )
+from quantrl_lab.environments.core.types import Actions
 
 if TYPE_CHECKING:  # Solves circular import issues
-    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
 
-class StandardMarketActionStrategy(BaseActionStrategy):
+class StandardActionStrategy(BaseActionStrategy):
     """
     Implements the full-featured action space with a 3-part Box space.
 

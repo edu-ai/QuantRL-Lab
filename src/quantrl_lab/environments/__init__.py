@@ -5,7 +5,7 @@ This package provides Gymnasium-compatible trading environments with
 pluggable strategy patterns for actions, observations, and rewards.
 """
 
-from quantrl_lab.environments import base, stock, strategies
+from quantrl_lab.environments import core, stock
 
 from .exceptions import (
     ConfigurationError,
@@ -16,9 +16,8 @@ from .exceptions import (
 )
 
 __all__ = [
-    "base",
+    "core",
     "stock",
-    "strategies",
     "EnvironmentError",
     "InvalidActionError",
     "InvalidStateError",

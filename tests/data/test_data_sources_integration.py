@@ -43,13 +43,13 @@ def has_fmp_credentials() -> bool:
 
 
 class TestYfinanceIntegration:
-    """Integration tests for YfinanceDataloader using real API calls."""
+    """Integration tests for YFinanceDataLoader using real API calls."""
 
     def test_get_historical_ohlcv_data_single_symbol(self):
         """Test fetching historical data for a single symbol."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
 
@@ -73,9 +73,9 @@ class TestYfinanceIntegration:
 
     def test_get_historical_ohlcv_data_multiple_symbols(self):
         """Test fetching historical data for multiple symbols."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
 
@@ -97,9 +97,9 @@ class TestYfinanceIntegration:
 
     def test_get_fundamental_data(self):
         """Test fetching fundamental data."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         result = loader.get_fundamental_data("AAPL", frequency="quarterly")
 
         assert result is not None
@@ -109,9 +109,9 @@ class TestYfinanceIntegration:
 
     def test_data_types_are_correct(self):
         """Test that returned data has correct types."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=10)
 
@@ -137,10 +137,10 @@ class TestAlpacaIntegration:
 
     def test_get_historical_ohlcv_data_single_symbol(self):
         """Test fetching historical data for a single symbol."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=30)
 
         result = loader.get_historical_ohlcv_data(
@@ -161,10 +161,10 @@ class TestAlpacaIntegration:
 
     def test_get_historical_ohlcv_data_multiple_symbols(self):
         """Test fetching historical data for multiple symbols."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=30)
 
         result = loader.get_historical_ohlcv_data(
@@ -185,7 +185,7 @@ class TestAlpacaIntegration:
 
     def test_get_latest_quote(self):
         """Test fetching latest quote."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         result = loader.get_latest_quote("AAPL")
@@ -195,7 +195,7 @@ class TestAlpacaIntegration:
 
     def test_get_latest_trade(self):
         """Test fetching latest trade."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         result = loader.get_latest_trade("AAPL")
@@ -205,7 +205,7 @@ class TestAlpacaIntegration:
 
     def test_get_news_data(self):
         """Test fetching news data."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         end_date = datetime.now()
@@ -224,7 +224,7 @@ class TestAlpacaIntegration:
 
     def test_is_connected(self):
         """Test connection status with valid credentials."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
 
@@ -251,7 +251,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_historical_ohlcv_data_daily(self):
         """Test fetching daily historical data."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         end_date = datetime.now()
@@ -274,7 +274,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_company_overview(self):
         """Test fetching company overview."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         result = loader._get_company_overview("IBM")
@@ -286,7 +286,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_real_gdp_data(self):
         """Test fetching real GDP data."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         result = loader._get_real_gdp_data(interval="annual")
@@ -306,7 +306,7 @@ class TestDataSourceRegistryIntegration:
         from quantrl_lab.data.source_registry import DataSourceRegistry
 
         registry = DataSourceRegistry()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=10)
 
         result = registry.get_historical_ohlcv_data(
@@ -327,10 +327,10 @@ class TestIndicatorsWithRealData:
     def test_indicators_on_real_data(self):
         """Test that indicators work correctly on real market data."""
         from quantrl_lab.data.indicators.registry import IndicatorRegistry
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
         # Fetch real data
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=60)
 
@@ -354,9 +354,9 @@ class TestIndicatorsWithRealData:
     def test_rsi_values_are_valid_on_real_data(self):
         """Test RSI produces valid values on real data."""
         from quantrl_lab.data.indicators.registry import IndicatorRegistry
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=60)
 

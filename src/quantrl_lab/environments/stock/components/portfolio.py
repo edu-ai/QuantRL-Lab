@@ -1,7 +1,34 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, List
 
-from quantrl_lab.environments.base.actions import Actions
-from quantrl_lab.environments.base.portfolio import Portfolio
+from quantrl_lab.environments.core.portfolio import Portfolio
+from quantrl_lab.environments.core.types import Actions
+
+
+class OrderType(str, Enum):
+    LIMIT_BUY = "limit_buy"
+    LIMIT_SELL = "limit_sell"
+    STOP_LOSS = "stop_loss"
+    TAKE_PROFIT = "take_profit"
+
+
+class OrderTIF(str, Enum):
+    GTC = "GTC"  # Good Till Cancelled
+    IOC = "IOC"  # Immediate or Cancel
+    TTL = "TTL"  # Time To Live (uses config.order_expiration_steps)
+
+
+@dataclass
+class Order:
+    type: OrderType
+    shares: int
+    price: float
+    placed_at: int
+    cost_reserved: float = 0.0  # Only for limit buy orders
+    tif: OrderTIF = OrderTIF.GTC
 
 
 class StockPortfolio(Portfolio):
@@ -28,9 +55,12 @@ class StockPortfolio(Portfolio):
         self.order_expiration_steps = order_expiration_steps
 
         # === Stock-specific state ===
-        self.pending_orders: List[Dict[str, Any]] = []
-        self.stop_loss_orders: List[Dict[str, Any]] = []
-        self.take_profit_orders: List[Dict[str, Any]] = []
+        # Using strict typing with dataclasses instead of generic dicts
+        self.pending_orders: List[Order] = []
+        self.stop_loss_orders: List[Order] = []
+        self.take_profit_orders: List[Order] = []
+
+        # We keep history as Dict for now to allow flexible logging and compatibility with existing renderers
         self.executed_orders_history: List[Dict[str, Any]] = []
 
     def reset(self) -> None:
@@ -67,18 +97,6 @@ class StockPortfolio(Portfolio):
         Calculate the total value of the portfolio including unfilled
         orders and reserved money.
 
-        This overrides the parent's get_value method to account for:
-        - Current balance (free cash not tied up in orders)
-        - Value of currently held shares (free shares not reserved in orders)
-        - Reserved cash in pending buy orders (money locked up waiting for execution)
-        - Value of shares reserved in pending sell/stop/take-profit orders
-
-        The accounting works as follows:
-        - When a limit buy is placed: cash is moved from balance to cost_reserved
-        - When a limit sell is placed: shares are moved from units_held to the order
-        - When risk management orders are placed: shares are moved from units_held to respective order lists
-        - This method sums all these components to get the true portfolio value
-
         Args:
             current_price (float): The current market price of the asset.
 
@@ -90,21 +108,21 @@ class StockPortfolio(Portfolio):
 
         # Add reserved cash from pending buy orders
         for order in self.pending_orders:
-            if order["type"] == "limit_buy":
-                total_value += order["cost_reserved"]
+            if order.type == OrderType.LIMIT_BUY:
+                total_value += order.cost_reserved
 
         # Add value of shares reserved in pending sell orders
         for order in self.pending_orders:
-            if order["type"] == "limit_sell":
-                total_value += order["shares"] * current_price
+            if order.type == OrderType.LIMIT_SELL:
+                total_value += order.shares * current_price
 
         # Add value of shares reserved in stop loss orders
         for order in self.stop_loss_orders:
-            total_value += order["shares"] * current_price
+            total_value += order.shares * current_price
 
         # Add value of shares reserved in take profit orders
         for order in self.take_profit_orders:
-            total_value += order["shares"] * current_price
+            total_value += order.shares * current_price
 
         return total_value
 
@@ -135,9 +153,6 @@ class StockPortfolio(Portfolio):
             None
         """
         # Clip amount_pct to valid range
-        # During training, the env.action_space.sample() function can generate values:
-        # - Slightly below 0 due to floating-point precision
-        # - Slightly above 1 due to the same reason
         amount_pct = max(0.0, min(1.0, amount_pct))
 
         # === Runtime error checks ===
@@ -147,15 +162,12 @@ class StockPortfolio(Portfolio):
             raise ValueError("Invalid action type for market order")
 
         # === Buy Logic ===
-        # Adjust the current price for slippage and transaction costs
-        # and calculate the number of shares that we can afford
         if action_type == Actions.Buy:
             adjusted_price = current_price * (1 + self.slippage)
             cost_per_share = adjusted_price * (1 + self.transaction_cost_pct)
             if cost_per_share <= 1e-9:
                 return  # Avoid division by zero
 
-            # TODO: Consider buying using notional value instead of balance
             shares_to_buy = int((self.balance / cost_per_share) * amount_pct)
             if shares_to_buy > 0:
                 actual_cost = shares_to_buy * cost_per_share
@@ -173,8 +185,6 @@ class StockPortfolio(Portfolio):
                     )
 
         # === Sell Logic ===
-        # Adjust the current price for slippage and transaction costs
-        # and calculate the number of shares to sell
         elif action_type == Actions.Sell:
             if self.units_held <= 0:
                 return
@@ -195,7 +205,13 @@ class StockPortfolio(Portfolio):
                 )
 
     def place_limit_order(
-        self, action_type: Actions, current_price: float, amount_pct: float, price_modifier: float, current_step: int
+        self,
+        action_type: Actions,
+        current_price: float,
+        amount_pct: float,
+        price_modifier: float,
+        current_step: int,
+        tif: OrderTIF = OrderTIF.TTL,  # Default to TTL to preserve previous behavior
     ) -> None:
         """
         Place a limit order for buying or selling an asset.
@@ -206,12 +222,11 @@ class StockPortfolio(Portfolio):
             amount_pct (float): The percentage of the portfolio to use for the order.
             price_modifier (float): The price modifier to apply to the current price.
             current_step (int): The current step in the trading environment.
+            tif (OrderTIF): Time in Force for the order.
 
         Returns:
             None
         """
-
-        # TODO: Think about more robust way to set limit price
         limit_price = current_price * price_modifier
 
         # === Limit Buy Logic ===
@@ -222,25 +237,55 @@ class StockPortfolio(Portfolio):
             shares_to_buy = int((self.balance / cost_per_share) * amount_pct)
             if shares_to_buy > 0:
                 cost_reserved = shares_to_buy * cost_per_share
-                if cost_reserved <= self.balance:
-                    self.balance -= cost_reserved
-                    self.pending_orders.append(
-                        {
-                            "type": "limit_buy",
-                            "shares": shares_to_buy,
-                            "price": limit_price,
-                            "placed_at": current_step,
-                            "cost_reserved": cost_reserved,
-                        }
-                    )
-                    self.executed_orders_history.append(
-                        {
-                            "step": current_step,
-                            "type": "limit_buy_placed",
-                            "shares": shares_to_buy,
-                            "price": limit_price,
-                        }
-                    )
+
+                # Check balance
+                if cost_reserved > self.balance:
+                    return
+
+                # --- Handle IOC (Immediate or Cancel) ---
+                if tif == OrderTIF.IOC:
+                    # If current price <= limit price, execute immediately
+                    if current_price <= limit_price:
+                        # IOC Execution matches logic of standard execution
+                        execution_price = limit_price  # or current_price? Standard logic uses limit_price
+
+                        self.balance -= cost_reserved
+                        # Add shares (execution success)
+                        self.units_held += shares_to_buy
+
+                        self.executed_orders_history.append(
+                            {
+                                "step": current_step,
+                                "type": "limit_buy_executed_ioc",
+                                "shares": shares_to_buy,
+                                "price": execution_price,
+                                "cost": cost_reserved,
+                            }
+                        )
+                    # If not executable, do nothing (cancel)
+                    return
+
+                # --- Handle GTC / TTL (Pending) ---
+                self.balance -= cost_reserved
+                order = Order(
+                    type=OrderType.LIMIT_BUY,
+                    shares=shares_to_buy,
+                    price=limit_price,
+                    placed_at=current_step,
+                    cost_reserved=cost_reserved,
+                    tif=tif,
+                )
+                self.pending_orders.append(order)
+
+                self.executed_orders_history.append(
+                    {
+                        "step": current_step,
+                        "type": "limit_buy_placed",
+                        "shares": shares_to_buy,
+                        "price": limit_price,
+                        "tif": tif.value,
+                    }
+                )
 
         # === Limit Sell Logic ===
         elif action_type == Actions.LimitSell:
@@ -248,26 +293,56 @@ class StockPortfolio(Portfolio):
                 return
             shares_to_sell = int(self.units_held * amount_pct)
             if shares_to_sell > 0:
+
+                # --- Handle IOC (Immediate or Cancel) ---
+                if tif == OrderTIF.IOC:
+                    # If current price >= limit price, execute immediately
+                    if current_price >= limit_price:
+                        execution_price = limit_price
+
+                        # Calculate revenue
+                        revenue = shares_to_sell * execution_price * (1 - self.transaction_cost_pct)
+
+                        self.units_held -= shares_to_sell
+                        self.balance += revenue
+
+                        self.executed_orders_history.append(
+                            {
+                                "step": current_step,
+                                "type": "limit_sell_executed_ioc",
+                                "shares": shares_to_sell,
+                                "price": execution_price,
+                                "revenue": revenue,
+                            }
+                        )
+                    # If not executable, do nothing (cancel)
+                    return
+
+                # --- Handle GTC / TTL (Pending) ---
                 self.units_held -= shares_to_sell
-                self.pending_orders.append(
-                    {
-                        "type": "limit_sell",
-                        "shares": shares_to_sell,
-                        "price": limit_price,
-                        "placed_at": current_step,
-                    }
+                order = Order(
+                    type=OrderType.LIMIT_SELL, shares=shares_to_sell, price=limit_price, placed_at=current_step, tif=tif
                 )
+                self.pending_orders.append(order)
+
                 self.executed_orders_history.append(
                     {
                         "step": current_step,
                         "type": "limit_sell_placed",
                         "shares": shares_to_sell,
                         "price": limit_price,
+                        "tif": tif.value,
                     }
                 )
 
     def place_risk_management_order(
-        self, action_type: Actions, current_price: float, amount_pct: float, price_modifier: float, current_step: int
+        self,
+        action_type: Actions,
+        current_price: float,
+        amount_pct: float,
+        price_modifier: float,
+        current_step: int,
+        tif: OrderTIF = OrderTIF.GTC,  # Default to GTC (standard for stop loss)
     ) -> None:
         """
         Place a risk management order (stop loss or take profit).
@@ -278,10 +353,15 @@ class StockPortfolio(Portfolio):
             amount_pct (float): The percentage of the portfolio to use for the order.
             price_modifier (float): The price modifier to apply to the current price.
             current_step (int): The current step in the trading environment.
+            tif (OrderTIF): Time in Force. Only GTC and TTL are valid for Stop orders.
 
         Returns:
             None
         """
+        # Validate TIF for Stop orders
+        if tif == OrderTIF.IOC:
+            return  # IOC is invalid for Stop orders (must rest until trigger)
+
         if self.units_held <= 0:
             return
         shares_to_cover = int(self.units_held * amount_pct)
@@ -291,28 +371,47 @@ class StockPortfolio(Portfolio):
                 stop_price = current_price * min(0.999, price_modifier)
                 if stop_price >= current_price:
                     stop_price = current_price * 0.999
+
                 self.units_held -= shares_to_cover
-                self.stop_loss_orders.append(
-                    {"shares": shares_to_cover, "price": stop_price, "placed_at": current_step}
+
+                order = Order(
+                    type=OrderType.STOP_LOSS, shares=shares_to_cover, price=stop_price, placed_at=current_step, tif=tif
                 )
+                self.stop_loss_orders.append(order)
+
                 self.executed_orders_history.append(
-                    {"step": current_step, "type": "stop_loss_placed", "shares": shares_to_cover, "price": stop_price}
+                    {
+                        "step": current_step,
+                        "type": "stop_loss_placed",
+                        "shares": shares_to_cover,
+                        "price": stop_price,
+                        "tif": tif.value,
+                    }
                 )
             # === Take Profit Logic ===
             elif action_type == Actions.TakeProfit:
                 take_profit_price = current_price * max(1.001, price_modifier)
                 if take_profit_price <= current_price:
                     take_profit_price = current_price * 1.001
+
                 self.units_held -= shares_to_cover
-                self.take_profit_orders.append(
-                    {"shares": shares_to_cover, "price": take_profit_price, "placed_at": current_step}
+
+                order = Order(
+                    type=OrderType.TAKE_PROFIT,
+                    shares=shares_to_cover,
+                    price=take_profit_price,
+                    placed_at=current_step,
+                    tif=tif,
                 )
+                self.take_profit_orders.append(order)
+
                 self.executed_orders_history.append(
                     {
                         "step": current_step,
                         "type": "take_profit_placed",
                         "shares": shares_to_cover,
                         "price": take_profit_price,
+                        "tif": tif.value,
                     }
                 )
 
@@ -324,9 +423,9 @@ class StockPortfolio(Portfolio):
         Returns:
             int: The total number of shares reserved.
         """
-        reserved_sl = sum(order["shares"] for order in self.stop_loss_orders)
-        reserved_tp = sum(order["shares"] for order in self.take_profit_orders)
-        reserved_limit_sell = sum(order["shares"] for order in self.pending_orders if order["type"] == "limit_sell")
+        reserved_sl = sum(order.shares for order in self.stop_loss_orders)
+        reserved_tp = sum(order.shares for order in self.take_profit_orders)
+        reserved_limit_sell = sum(order.shares for order in self.pending_orders if order.type == OrderType.LIMIT_SELL)
         return reserved_sl + reserved_tp + reserved_limit_sell
 
     def _process_pending_orders(self, current_step: int, current_price: float) -> None:
@@ -338,62 +437,63 @@ class StockPortfolio(Portfolio):
             current_step (int): The current step of the environment.
             current_price (float): The current market price.
         """
-        remaining_orders = []
+        remaining_orders: List[Order] = []
         executed_order_details = []
 
         for order in self.pending_orders:
             executed = False  # Initialize execution flag
 
-            # Check for expiration using the passed-in current_step
-            # TODO: Consider other ways to handle expiration, e.g., GTC etc.
-            expired = current_step - order["placed_at"] > self.order_expiration_steps
+            # Check for expiration
+            expired = False
+            if order.tif == OrderTIF.TTL:
+                # Only expire if TIF is TTL
+                expired = current_step - order.placed_at > self.order_expiration_steps
+            # GTC orders do not expire here
 
             if expired:
-                if order["type"] == "limit_buy":
+                if order.type == OrderType.LIMIT_BUY:
                     # Refund the reserved balance if a buy order expires
-                    self.balance += order["cost_reserved"]
-                elif order["type"] == "limit_sell":
+                    self.balance += order.cost_reserved
+                elif order.type == OrderType.LIMIT_SELL:
                     # Return the reserved shares to the free pool if a sell order expires
-                    self.units_held += order["shares"]
+                    self.units_held += order.shares
 
                 executed_order_details.append(
                     {
                         "step": current_step,
-                        "type": f"{order['type']}_expired",
-                        "shares": order["shares"],
-                        "price": order["price"],
+                        "type": f"{order.type.value}_expired",
+                        "shares": order.shares,
+                        "price": order.price,
                         "reason": "Expired",
                     }
                 )
                 executed = True
 
             # Check for execution if not expired
-            elif order["type"] == "limit_buy" and current_price <= order["price"]:
+            elif order.type == OrderType.LIMIT_BUY and current_price <= order.price:
                 # A limit buy executes at or below the limit price.
-                # For simplicity, we execute at the limit price.
-                execution_price = order["price"]
+                execution_price = order.price
 
                 # The cost was already subtracted. We just add the shares to our free pool.
-                self.units_held += order["shares"]
+                self.units_held += order.shares
                 executed = True
 
                 executed_order_details.append(
                     {
                         "step": current_step,
                         "type": "limit_buy_executed",
-                        "shares": order["shares"],
+                        "shares": order.shares,
                         "price": execution_price,
-                        "cost": order["cost_reserved"],
+                        "cost": order.cost_reserved,
                     }
                 )
 
-            elif order["type"] == "limit_sell" and current_price >= order["price"]:
+            elif order.type == OrderType.LIMIT_SELL and current_price >= order.price:
                 # A limit sell executes at or above the limit price.
-                # For simplicity, we execute at the limit price.
-                execution_price = order["price"]
+                execution_price = order.price
 
                 # The shares were already reserved. We calculate revenue and add to balance.
-                revenue = order["shares"] * execution_price * (1 - self.transaction_cost_pct)
+                revenue = order.shares * execution_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
                 executed = True
 
@@ -401,7 +501,7 @@ class StockPortfolio(Portfolio):
                     {
                         "step": current_step,
                         "type": "limit_sell_executed",
-                        "shares": order["shares"],
+                        "shares": order.shares,
                         "price": execution_price,
                         "revenue": revenue,
                     }
@@ -427,17 +527,30 @@ class StockPortfolio(Portfolio):
         executed_order_details = []
 
         # === Process Stop Loss Orders ===
-        # If the current price is equal or below the stop loss price, execute the order.
-        # If the stop loss is triggered, we sell at the current price with slippage.
-        # The shares were already reserved, so we just adjust the balance.
-        # If the stop loss is not triggered, we keep the order for the next step.
-        # We also log the executed orders for later analysis.
-        remaining_stop_loss = []
+        remaining_stop_loss: List[Order] = []
         for order in self.stop_loss_orders:
-            if current_price <= order["price"]:
+            # Check Expiration for TTL Stop Orders
+            expired = False
+            if order.tif == OrderTIF.TTL:
+                expired = current_step - order.placed_at > self.order_expiration_steps
+
+            if expired:
+                # Return shares
+                self.units_held += order.shares
+                executed_order_details.append(
+                    {
+                        "step": current_step,
+                        "type": "stop_loss_expired",
+                        "shares": order.shares,
+                        "price": order.price,
+                    }
+                )
+                continue  # Skip to next order
+
+            if current_price <= order.price:
                 # Triggered: Sell at the current price with slippage
                 adjusted_price = current_price * (1 - self.slippage)
-                revenue = order["shares"] * adjusted_price * (1 - self.transaction_cost_pct)
+                revenue = order.shares * adjusted_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
 
                 # Shares were already reserved, so no change to self.units_held is needed.
@@ -445,8 +558,8 @@ class StockPortfolio(Portfolio):
                     {
                         "step": current_step,
                         "type": "stop_loss_executed",
-                        "shares": order["shares"],
-                        "trigger_price": order["price"],
+                        "shares": order.shares,
+                        "trigger_price": order.price,
                         "execution_price": adjusted_price,
                         "revenue": revenue,
                     }
@@ -456,17 +569,29 @@ class StockPortfolio(Portfolio):
         self.stop_loss_orders = remaining_stop_loss
 
         # === Process Take Profit Orders ===
-        # If the current price is equal or above the take profit price, execute the order.
-        # If the take profit is triggered, we sell at the current price with slippage.
-        # The shares were already reserved, so we just adjust the balance.
-        # If the take profit is not triggered, we keep the order for the next step.
-        # We also log the executed orders for later analysis.
-        remaining_take_profit = []
+        remaining_take_profit: List[Order] = []
         for order in self.take_profit_orders:
-            if current_price >= order["price"]:
+            # Check Expiration
+            expired = False
+            if order.tif == OrderTIF.TTL:
+                expired = current_step - order.placed_at > self.order_expiration_steps
+
+            if expired:
+                self.units_held += order.shares
+                executed_order_details.append(
+                    {
+                        "step": current_step,
+                        "type": "take_profit_expired",
+                        "shares": order.shares,
+                        "price": order.price,
+                    }
+                )
+                continue
+
+            if current_price >= order.price:
                 # Triggered: Sell at the current price with slippage
                 adjusted_price = current_price * (1 - self.slippage)
-                revenue = order["shares"] * adjusted_price * (1 - self.transaction_cost_pct)
+                revenue = order.shares * adjusted_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
 
                 # Shares were already reserved.
@@ -474,8 +599,8 @@ class StockPortfolio(Portfolio):
                     {
                         "step": current_step,
                         "type": "take_profit_executed",
-                        "shares": order["shares"],
-                        "trigger_price": order["price"],
+                        "shares": order.shares,
+                        "trigger_price": order.price,
                         "execution_price": adjusted_price,
                         "revenue": revenue,
                     }

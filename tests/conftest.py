@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from quantrl_lab.environments.stock import SingleStockEnvConfig, SingleStockTradingEnv
-from quantrl_lab.environments.stock.strategies.actions.standard_market_action_strategy import (
-    StandardMarketActionStrategy,
+from quantrl_lab.environments.stock.strategies.actions.standard import (
+    StandardActionStrategy,
 )
 from quantrl_lab.environments.stock.strategies.observations import (
     PortfolioWithTrendObservation,
@@ -56,7 +56,7 @@ def standard_env(sample_data: tuple[np.ndarray, int], stock_env_config: SingleSt
     env = SingleStockTradingEnv(
         data=data,
         config=stock_env_config,
-        action_strategy=StandardMarketActionStrategy(),
+        action_strategy=StandardActionStrategy(),
         reward_strategy=PortfolioValueChangeReward(),
         observation_strategy=PortfolioWithTrendObservation(),
     )

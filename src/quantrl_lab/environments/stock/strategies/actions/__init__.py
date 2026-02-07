@@ -1,1 +1,1 @@
-from .standard_market_action_strategy import StandardMarketActionStrategy
+from .standard import StandardActionStrategy

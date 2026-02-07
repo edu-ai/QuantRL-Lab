@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
-from quantrl_lab.environments.strategies.rewards import (
+from quantrl_lab.environments.core.interfaces import (
     BaseRewardStrategy,
 )
 from quantrl_lab.environments.utils import calc_trend

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from quantrl_lab.environments.base.trading_env import TradingEnvProtocol
+    from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
 
 def calc_trend(env: TradingEnvProtocol, lookback: int = 10) -> float:
