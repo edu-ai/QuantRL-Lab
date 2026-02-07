@@ -33,6 +33,7 @@ class SentimentFeatureGenerator:
         sentiment_config: SentimentConfig,
         news_data: pd.DataFrame,
         fillna_strategy: str = "neutral",
+        decay_rate: float = 0.8,
     ):
         """
         Initialize SentimentFeatureGenerator.
@@ -41,7 +42,9 @@ class SentimentFeatureGenerator:
             sentiment_provider (SentimentProvider): Provider for sentiment analysis.
             sentiment_config (SentimentConfig): Configuration for sentiment analysis.
             news_data (pd.DataFrame): News data containing text to analyze.
-            fillna_strategy (str): Strategy for missing values ("neutral" or "fill_forward").
+            fillna_strategy (str): Strategy for missing values ("neutral", "fill_forward", "exponential_decay").
+            decay_rate (float): Decay factor for exponential decay (default: 0.8).
+                                Only used if fillna_strategy="exponential_decay".
 
         Raises:
             ValueError: If news_data is empty or fillna_strategy is invalid.
@@ -49,15 +52,17 @@ class SentimentFeatureGenerator:
         if news_data is None or news_data.empty:
             raise ValueError("News data cannot be None or empty")
 
-        if fillna_strategy not in ["neutral", "fill_forward"]:
+        valid_strategies = ["neutral", "fill_forward", "exponential_decay"]
+        if fillna_strategy not in valid_strategies:
             raise ValueError(
-                f"Unsupported strategy: {fillna_strategy}. " "Supported strategies are 'neutral' and 'fill_forward'."
+                f"Unsupported strategy: {fillna_strategy}. " f"Supported strategies are {', '.join(valid_strategies)}."
             )
 
         self.sentiment_provider = sentiment_provider
         self.sentiment_config = sentiment_config
         self.news_data = news_data
         self.fillna_strategy = fillna_strategy
+        self.decay_rate = decay_rate
 
     def generate(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
@@ -98,6 +103,29 @@ class SentimentFeatureGenerator:
             merged_data["sentiment_score"] = merged_data["sentiment_score"].fillna(0.0)
         elif self.fillna_strategy == "fill_forward":
             merged_data["sentiment_score"] = merged_data["sentiment_score"].ffill()
+        elif self.fillna_strategy == "exponential_decay":
+            # 1. Identify valid values (where data was present)
+            valid_mask = merged_data["sentiment_score"].notna()
+
+            # 2. Create groups for decay calculation
+            # Each valid value starts a new group. cumsum() increments when True is encountered.
+            groups = valid_mask.cumsum()
+
+            # 3. Calculate "staleness" (days since last valid value)
+            # cumcount() gives 0 for the valid value, 1 for the next, etc.
+            days_since = merged_data.groupby(groups).cumcount()
+
+            # 4. Forward fill the base values to decay from
+            ffilled_scores = merged_data["sentiment_score"].ffill()
+
+            # 5. Apply decay formula: Value * (decay_rate ^ days_since)
+            # Note: For the valid day (days_since=0), decay_rate^0 = 1, so value is unchanged
+            decay_factors = self.decay_rate**days_since
+            merged_data["sentiment_score"] = ffilled_scores * decay_factors
+
+            # Handle leading NaNs (ffill leaves them as NaN, multiplication by decay keeps them NaN)
+            # Optional: Fill remaining leading NaNs with 0.0 if desired, but standard behavior is usually neutral
+            merged_data["sentiment_score"] = merged_data["sentiment_score"].fillna(0.0)
 
         return merged_data
 
@@ -112,5 +140,6 @@ class SentimentFeatureGenerator:
             "type": "sentiment",
             "provider": self.sentiment_provider.__class__.__name__,
             "fillna_strategy": self.fillna_strategy,
+            "decay_rate": self.decay_rate if self.fillna_strategy == "exponential_decay" else None,
             "news_records": len(self.news_data),
         }

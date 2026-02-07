@@ -410,25 +410,20 @@ class DataProcessor:
             console.print(f"[cyan]Before dropna: {len(processed_data)} rows[/cyan]")
             console.print(f"[cyan]Columns in DataFrame: {list(processed_data.columns)}[/cyan]")
 
-        # Only drop rows where OHLCV columns have NaN (keep analyst/context data sparse)
-        # Core OHLCV columns that must not have NaN (case-insensitive)
-        required_cols = ['open', 'high', 'low', 'close', 'volume']
-        col_lower_map = {col.lower(): col for col in processed_data.columns}
-        available_required = [col_lower_map[req] for req in required_cols if req in col_lower_map]
+        # Drop rows with any NaN values
+        # This handles:
+        # 1. Indicator warm-up periods (e.g., SMA(200) creates 200 leading NaNs)
+        # 2. Missing price data
+        # 3. Any other features that couldn't be computed/filled
+        initial_len = len(processed_data)
+        processed_data = processed_data.dropna().reset_index(drop=True)
+        dropped_count = initial_len - len(processed_data)
 
         if verbose:
-            console.print(f"[cyan]Required OHLCV columns to check: {available_required}[/cyan]")
-            if available_required:
-                for col in available_required:
-                    nan_count = processed_data[col].isnull().sum()
-                    console.print(f"[cyan]  {col}: {nan_count} NaN values[/cyan]")
-
-        if available_required:
-            processed_data = processed_data.dropna(subset=available_required).reset_index(drop=True)
-        else:
-            # Fallback: drop rows with any NaN in core price data
-            console.print("[yellow]⚠️  Warning: No OHLCV columns found, falling back to dropna()[/yellow]")
-            processed_data = processed_data.dropna().reset_index(drop=True)
+            if dropped_count > 0:
+                console.print(f"[yellow]Dropped {dropped_count} rows containing NaNs (indicator warm-up, etc)[/yellow]")
+            else:
+                console.print("[green]No rows dropped (data is clean)[/green]")
 
         if verbose:
             console.print(f"[cyan]After dropna: {len(processed_data)} rows[/cyan]")

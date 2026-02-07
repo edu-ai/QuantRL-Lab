@@ -284,6 +284,8 @@ class AlpacaDataLoader(
         end: Optional[Union[str, datetime]] = None,
         limit: int = 50,
         include_content: bool = False,
+        verbose: bool = False,
+        silent_errors: bool = False,
         **kwargs: Any,
     ) -> Union[pd.DataFrame, Dict]:
         """
@@ -295,6 +297,8 @@ class AlpacaDataLoader(
             end: End date for news (defaults to today)
             limit: Number of news items per request
             include_content: Whether to include full article content
+            verbose: Whether to log progress (default: False)
+            silent_errors: Whether to suppress connection errors (default: False)
             **kwargs: Additional parameters
 
         Returns:
@@ -333,14 +337,15 @@ class AlpacaDataLoader(
         page_token = None
         page_count = 0
 
-        logger.info(
-            "Fetching news for {symbols} from {start} to {end} (limit={limit}, include_content={include})",
-            symbols=symbols_str,
-            start=start_str,
-            end=end_str,
-            limit=limit,
-            include=include_content,
-        )
+        if verbose:
+            logger.info(
+                "Fetching news for {symbols} from {start} to {end} (limit={limit}, include_content={include})",
+                symbols=symbols_str,
+                start=start_str,
+                end=end_str,
+                limit=limit,
+                include=include_content,
+            )
 
         while True:
             # Add page token if we have one
@@ -360,11 +365,12 @@ class AlpacaDataLoader(
                 all_news.extend(news_items)
                 page_count += 1
 
-                logger.debug(
-                    "Fetched page {page} (total_items={total})",
-                    page=page_count,
-                    total=len(all_news),
-                )
+                if verbose:
+                    logger.debug(
+                        "Fetched page {page} (total_items={total})",
+                        page=page_count,
+                        total=len(all_news),
+                    )
 
                 # Check if there's a next page
                 page_token = data.get("next_page_token")
@@ -372,10 +378,14 @@ class AlpacaDataLoader(
                     break
 
             except requests.exceptions.RequestException as e:
-                logger.error("Error fetching news: {e}", e=e)
+                if silent_errors:
+                    logger.debug("Silent failure fetching news: {e}", e=e)
+                else:
+                    logger.error("Error fetching news: {e}", e=e)
                 break
 
-        logger.success("Total news items fetched: {n}", n=len(all_news))
+        if verbose:
+            logger.success("Total news items fetched: {n}", n=len(all_news))
 
         # Convert to DataFrame
         if all_news:

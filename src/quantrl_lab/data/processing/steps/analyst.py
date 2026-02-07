@@ -62,43 +62,74 @@ class AnalystEstimatesStep:
                 df.index = df.index.tz_convert('UTC').tz_localize(None)
             df.index = df.index.normalize()
 
+        # Helper to prepare month key for joining
+        # We use to_period('M') to match "2023-01-03" (Data) with "2023-01-01" (Grade)
+        df['_join_month'] = df.index.to_period('M')
+
         # --- Process Grades ---
         if self.grades_df is not None and not self.grades_df.empty:
             grades = self.grades_df.copy()
             if 'date' in grades.columns:
                 grades['date'] = pd.to_datetime(grades['date'])
-                grades.set_index('date', inplace=True)
 
-                # Normalize to tz-naive
-                if isinstance(grades.index, pd.DatetimeIndex):
-                    if grades.index.tz is not None:
-                        grades.index = grades.index.tz_convert('UTC').tz_localize(None)
-                    grades.index = grades.index.normalize()
+                # Create join key
+                grades['_join_month'] = grades['date'].dt.to_period('M')
 
-                # Drop redundant columns (symbol, date already used as index)
-                grades = grades.drop(columns=['symbol'], errors='ignore')
+                # Deduplicate: Keep the last rating for the month if multiple exist
+                # This prevents row explosion (Cartesian product) if FMP has >1 record/month
+                grades = grades.sort_values('date').drop_duplicates(subset=['_join_month'], keep='last')
 
-                # Merge with left join
-                df = df.join(grades, how='left', rsuffix='_grade')
+                # Drop redundant columns
+                grades = grades.drop(columns=['symbol', 'date'], errors='ignore')
+
+                # Merge on month key
+                # We use reset_index() on df to preserve the DatetimeIndex during merge
+                # then set it back.
+                df_reset = df.reset_index()
+
+                # Merge
+                merged = pd.merge(df_reset, grades, on='_join_month', how='left', suffixes=('', '_grade'))
+
+                # Restore index
+                if date_col:
+                    merged.set_index(date_col, inplace=True)
+                else:
+                    # Fallback if date_col wasn't explicitly tracked (shouldn't happen given logic above)
+                    merged.set_index(df.index.name or 'index', inplace=True)
+
+                df = merged
 
         # --- Process Ratings ---
         if self.ratings_df is not None and not self.ratings_df.empty:
             ratings = self.ratings_df.copy()
             if 'date' in ratings.columns:
                 ratings['date'] = pd.to_datetime(ratings['date'])
-                ratings.set_index('date', inplace=True)
 
-                # Normalize to tz-naive
-                if isinstance(ratings.index, pd.DatetimeIndex):
-                    if ratings.index.tz is not None:
-                        ratings.index = ratings.index.tz_convert('UTC').tz_localize(None)
-                    ratings.index = ratings.index.normalize()
+                # Create join key
+                ratings['_join_month'] = ratings['date'].dt.to_period('M')
 
-                # Drop redundant columns (symbol, date already used as index, rating is categorical)
-                ratings = ratings.drop(columns=['symbol', 'rating'], errors='ignore')
+                # Deduplicate
+                ratings = ratings.sort_values('date').drop_duplicates(subset=['_join_month'], keep='last')
 
-                # Merge with left join
-                df = df.join(ratings, how='left', rsuffix='_rating')
+                # Drop redundant columns
+                ratings = ratings.drop(columns=['symbol', 'rating', 'date'], errors='ignore')
+
+                # Merge
+                df_reset = df.reset_index()
+
+                merged = pd.merge(df_reset, ratings, on='_join_month', how='left', suffixes=('', '_rating'))
+
+                # Restore index
+                if date_col:
+                    merged.set_index(date_col, inplace=True)
+                else:
+                    merged.set_index(df.index.name or 'index', inplace=True)
+
+                df = merged
+
+        # Cleanup join key
+        if '_join_month' in df.columns:
+            df = df.drop(columns=['_join_month'])
 
         # Reset index if we changed it
         if date_col:
