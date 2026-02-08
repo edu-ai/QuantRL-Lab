@@ -12,7 +12,7 @@ from quantrl_lab.environments.core.interfaces import (
 from quantrl_lab.environments.core.types import Actions
 from quantrl_lab.environments.stock.components.config import SingleStockEnvConfig
 from quantrl_lab.environments.stock.components.portfolio import StockPortfolio
-from quantrl_lab.environments.utils.columns import auto_detect_price_column, detect_column_index
+from quantrl_lab.environments.utils.market_data import auto_detect_price_column, detect_column_index
 
 
 class SingleStockTradingEnv(gym.Env):

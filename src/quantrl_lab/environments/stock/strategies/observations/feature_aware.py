@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
 from quantrl_lab.environments.core.interfaces import BaseObservationStrategy
-from quantrl_lab.environments.utils import calc_trend
+from quantrl_lab.environments.utils.market_data import calc_trend
 
 
 class FeatureAwareObservationStrategy(BaseObservationStrategy):
@@ -220,7 +220,9 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
             rets = np.diff(recent_slice[:, price_col]) / recent_slice[:-1, price_col]
             volatility = np.std(rets)
 
-        trend = calc_trend(env, self.trend_lookback)
+        trend_start_idx = max(0, env.current_step - self.trend_lookback + 1)
+        trend_slice = env.data[trend_start_idx:end_idx, price_col]
+        trend = calc_trend(trend_slice)
 
         portfolio_features = np.array(
             [

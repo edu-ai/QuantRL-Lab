@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 
 
@@ -77,3 +80,28 @@ def auto_detect_price_column(df: pd.DataFrame) -> int:
         f"Could not auto-detect price column. Available columns: {columns}. "
         f"Please ensure your DataFrame has a column named 'close', 'price', or similar."
     )
+
+
+def calc_trend(prices: np.ndarray) -> float:
+    """
+    Calculate the trend strength of a price series using linear
+    regression.
+
+    Args:
+        prices (np.ndarray): Array of price data.
+
+    Returns:
+        float: The calculated trend strength (slope / max_price).
+               Returns 0.0 if not enough data.
+    """
+    if len(prices) < 2:
+        return 0.0
+
+    x = np.arange(len(prices))
+    slope, _ = np.polyfit(x, prices, 1)
+
+    max_price = np.max(prices)
+    if max_price > 1e-9:
+        return slope / max_price
+
+    return 0.0

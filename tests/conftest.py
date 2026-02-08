@@ -6,7 +6,7 @@ from quantrl_lab.environments.stock.strategies.actions.standard import (
     StandardActionStrategy,
 )
 from quantrl_lab.environments.stock.strategies.observations import (
-    PortfolioWithTrendObservation,
+    FeatureAwareObservationStrategy,
 )
 from quantrl_lab.environments.stock.strategies.rewards import PortfolioValueChangeReward
 
@@ -58,6 +58,6 @@ def standard_env(sample_data: tuple[np.ndarray, int], stock_env_config: SingleSt
         config=stock_env_config,
         action_strategy=StandardActionStrategy(),
         reward_strategy=PortfolioValueChangeReward(),
-        observation_strategy=PortfolioWithTrendObservation(),
+        observation_strategy=FeatureAwareObservationStrategy(),
     )
     return env
