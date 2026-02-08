@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from quantrl_lab.environments.core.portfolio import Portfolio
 from quantrl_lab.environments.core.types import Actions
@@ -126,16 +126,34 @@ class StockPortfolio(Portfolio):
 
         return total_value
 
-    def process_open_orders(self, current_step: int, current_price: float) -> None:
+    def process_open_orders(
+        self,
+        current_step: int,
+        current_price: float,
+        current_high: Optional[float] = None,
+        current_low: Optional[float] = None,
+        current_open: Optional[float] = None,
+    ) -> None:
         """
-        Process all open orders at the current market price.
+        Process all open orders using OHLC data for realistic execution.
 
         Args:
             current_step (int): The current step in the trading environment.
-            current_price (float): The current market price of the asset.
+            current_price (float): The current close price.
+            current_high (Optional[float]): High price of the bar. Defaults to current_price.
+            current_low (Optional[float]): Low price of the bar. Defaults to current_price.
+            current_open (Optional[float]): Open price of the bar. Defaults to current_price.
         """
-        self._process_pending_orders(current_step, current_price)
-        self._process_risk_management_orders(current_step, current_price)
+        # Fallback for Close-only execution (backward compatibility)
+        if current_high is None:
+            current_high = current_price
+        if current_low is None:
+            current_low = current_price
+        if current_open is None:
+            current_open = current_price
+
+        self._process_pending_orders(current_step, current_price, current_high, current_low, current_open)
+        self._process_risk_management_orders(current_step, current_price, current_high, current_low, current_open)
 
     def execute_market_order(
         self, action_type: Actions, current_price: float, amount_pct: float, current_step: int
@@ -428,34 +446,30 @@ class StockPortfolio(Portfolio):
         reserved_limit_sell = sum(order.shares for order in self.pending_orders if order.type == OrderType.LIMIT_SELL)
         return reserved_sl + reserved_tp + reserved_limit_sell
 
-    def _process_pending_orders(self, current_step: int, current_price: float) -> None:
-        """
-        Process all pending limit orders against the current market
-        price.
-
-        Args:
-            current_step (int): The current step of the environment.
-            current_price (float): The current market price.
-        """
+    def _process_pending_orders(
+        self,
+        current_step: int,
+        current_price: float,
+        current_high: float,
+        current_low: float,
+        current_open: float,
+    ) -> None:
+        """Process pending limit orders."""
         remaining_orders: List[Order] = []
         executed_order_details = []
 
         for order in self.pending_orders:
-            executed = False  # Initialize execution flag
+            executed = False
 
             # Check for expiration
             expired = False
             if order.tif == OrderTIF.TTL:
-                # Only expire if TIF is TTL
                 expired = current_step - order.placed_at > self.order_expiration_steps
-            # GTC orders do not expire here
 
             if expired:
                 if order.type == OrderType.LIMIT_BUY:
-                    # Refund the reserved balance if a buy order expires
                     self.balance += order.cost_reserved
                 elif order.type == OrderType.LIMIT_SELL:
-                    # Return the reserved shares to the free pool if a sell order expires
                     self.units_held += order.shares
 
                 executed_order_details.append(
@@ -469,12 +483,25 @@ class StockPortfolio(Portfolio):
                 )
                 executed = True
 
-            # Check for execution if not expired
-            elif order.type == OrderType.LIMIT_BUY and current_price <= order.price:
-                # A limit buy executes at or below the limit price.
+            # === Limit Buy Execution ===
+            # Execute if Low price dipped below Limit Price
+            elif order.type == OrderType.LIMIT_BUY and current_low <= order.price:
+                # Determine execution price (Gap Handling)
+                # If Open < Limit, we assume we filled at Open (better price).
+                # Otherwise we filled at Limit.
                 execution_price = order.price
+                if current_open < order.price:
+                    execution_price = current_open
 
-                # The cost was already subtracted. We just add the shares to our free pool.
+                # Refund the cost difference if we got a better price
+                actual_cost = order.shares * execution_price * (1 + self.transaction_cost_pct)
+                cost_diff = order.cost_reserved - actual_cost
+                if cost_diff > 0:
+                    self.balance += cost_diff
+
+                # Note: We technically might have reserved too little if execution_price > reserved_price
+                # but Limit Buy ensures price <= limit, so cost is always <= reserved.
+
                 self.units_held += order.shares
                 executed = True
 
@@ -484,15 +511,19 @@ class StockPortfolio(Portfolio):
                         "type": "limit_buy_executed",
                         "shares": order.shares,
                         "price": execution_price,
-                        "cost": order.cost_reserved,
+                        "cost": actual_cost,
                     }
                 )
 
-            elif order.type == OrderType.LIMIT_SELL and current_price >= order.price:
-                # A limit sell executes at or above the limit price.
+            # === Limit Sell Execution ===
+            # Execute if High price reached Limit Price
+            elif order.type == OrderType.LIMIT_SELL and current_high >= order.price:
+                # Determine execution price (Gap Handling)
+                # If Open > Limit, we filled at Open (better price).
                 execution_price = order.price
+                if current_open > order.price:
+                    execution_price = current_open
 
-                # The shares were already reserved. We calculate revenue and add to balance.
                 revenue = order.shares * execution_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
                 executed = True
@@ -515,27 +546,26 @@ class StockPortfolio(Portfolio):
         if executed_order_details:
             self.executed_orders_history.extend(executed_order_details)
 
-    def _process_risk_management_orders(self, current_step: int, current_price: float) -> None:
-        """
-        Process all stop-loss and take-profit orders against the current
-        market price.
-
-        Args:
-            current_step (int): The current step of the environment.
-            current_price (float): The current market price.
-        """
+    def _process_risk_management_orders(
+        self,
+        current_step: int,
+        current_price: float,
+        current_high: float,
+        current_low: float,
+        current_open: float,
+    ) -> None:
+        """Process stop-loss and take-profit orders."""
         executed_order_details = []
 
         # === Process Stop Loss Orders ===
         remaining_stop_loss: List[Order] = []
         for order in self.stop_loss_orders:
-            # Check Expiration for TTL Stop Orders
+            # Check Expiration for TTL
             expired = False
             if order.tif == OrderTIF.TTL:
                 expired = current_step - order.placed_at > self.order_expiration_steps
 
             if expired:
-                # Return shares
                 self.units_held += order.shares
                 executed_order_details.append(
                     {
@@ -545,21 +575,29 @@ class StockPortfolio(Portfolio):
                         "price": order.price,
                     }
                 )
-                continue  # Skip to next order
+                continue
 
-            if current_price <= order.price:
-                # Triggered: Sell at the current price with slippage
-                adjusted_price = current_price * (1 - self.slippage)
+            # Check Trigger: Low <= Stop Price
+            if current_low <= order.price:
+                # Determine execution price (Gap Handling)
+                # If Open < Stop Price (gap down), we fill at Open (worse price).
+                # Otherwise we fill at Stop Price.
+                trigger_price = order.price
+                fill_price = trigger_price
+                if current_open < trigger_price:
+                    fill_price = current_open
+
+                # Apply slippage to the fill price
+                adjusted_price = fill_price * (1 - self.slippage)
                 revenue = order.shares * adjusted_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
 
-                # Shares were already reserved, so no change to self.units_held is needed.
                 executed_order_details.append(
                     {
                         "step": current_step,
                         "type": "stop_loss_executed",
                         "shares": order.shares,
-                        "trigger_price": order.price,
+                        "trigger_price": trigger_price,
                         "execution_price": adjusted_price,
                         "revenue": revenue,
                     }
@@ -588,19 +626,26 @@ class StockPortfolio(Portfolio):
                 )
                 continue
 
-            if current_price >= order.price:
-                # Triggered: Sell at the current price with slippage
-                adjusted_price = current_price * (1 - self.slippage)
+            # Check Trigger: High >= Take Profit Price
+            if current_high >= order.price:
+                # Determine execution price (Gap Handling)
+                # If Open > TP Price (gap up), we fill at Open (better price).
+                trigger_price = order.price
+                fill_price = trigger_price
+                if current_open > trigger_price:
+                    fill_price = current_open
+
+                # Apply slippage
+                adjusted_price = fill_price * (1 - self.slippage)
                 revenue = order.shares * adjusted_price * (1 - self.transaction_cost_pct)
                 self.balance += revenue
 
-                # Shares were already reserved.
                 executed_order_details.append(
                     {
                         "step": current_step,
                         "type": "take_profit_executed",
                         "shares": order.shares,
-                        "trigger_price": order.price,
+                        "trigger_price": trigger_price,
                         "execution_price": adjusted_price,
                         "revenue": revenue,
                     }
@@ -608,7 +653,3 @@ class StockPortfolio(Portfolio):
             else:
                 remaining_take_profit.append(order)
         self.take_profit_orders = remaining_take_profit
-
-        # Log any events
-        if executed_order_details:
-            self.executed_orders_history.extend(executed_order_details)

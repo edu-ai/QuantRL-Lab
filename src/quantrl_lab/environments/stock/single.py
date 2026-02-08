@@ -12,6 +12,7 @@ from quantrl_lab.environments.core.interfaces import (
 from quantrl_lab.environments.core.types import Actions
 from quantrl_lab.environments.stock.components.config import SingleStockEnvConfig
 from quantrl_lab.environments.stock.components.portfolio import StockPortfolio
+from quantrl_lab.environments.utils.columns import auto_detect_price_column, detect_column_index
 
 
 class SingleStockTradingEnv(gym.Env):
@@ -32,10 +33,9 @@ class SingleStockTradingEnv(gym.Env):
         # === Handle DataFrame input with auto-detection ===
         if isinstance(data, pd.DataFrame):
             self.original_columns = data.columns.tolist()
-
             # Auto-detect price column if not specified
             if price_column is None:
-                self.price_column_index = self._auto_detect_price_column(data)
+                self.price_column_index = auto_detect_price_column(data)
             elif isinstance(price_column, str):
                 if price_column not in data.columns:
                     raise ValueError(
@@ -51,13 +51,21 @@ class SingleStockTradingEnv(gym.Env):
             else:
                 raise ValueError("price_column must be a string (column name), integer (index), or None (auto-detect)")
 
+            # Auto-detect OHLC columns for better execution simulation
+            self.open_column_index = detect_column_index(data, ["Open", "open"])
+            self.high_column_index = detect_column_index(data, ["High", "high"])
+            self.low_column_index = detect_column_index(data, ["Low", "low"])
+
             # Convert DataFrame to numpy array
             data_array = data.values.astype(np.float32)
         else:
             # Handle numpy array input (existing behavior)
             self.original_columns = None
+            self.open_column_index = None
+            self.high_column_index = None
+            self.low_column_index = None
+
             if price_column is None:
-                # Use config.price_column_index for backward compatibility
                 if hasattr(config, "price_column_index") and config.price_column_index is not None:
                     self.price_column_index = config.price_column_index
                 else:
@@ -157,7 +165,23 @@ class SingleStockTradingEnv(gym.Env):
         self.prev_portfolio_value = self.portfolio.get_value(current_price)
 
         # 2. Process any open orders that might be pending from previous steps.
-        self.portfolio.process_open_orders(self.current_step, current_price)
+        # Extract OHLC data if available for realistic execution
+        current_high, current_low, current_open = None, None, None
+
+        if self.high_column_index is not None:
+            current_high = float(self.data[self.current_step, self.high_column_index])
+        if self.low_column_index is not None:
+            current_low = float(self.data[self.current_step, self.low_column_index])
+        if self.open_column_index is not None:
+            current_open = float(self.data[self.current_step, self.open_column_index])
+
+        self.portfolio.process_open_orders(
+            self.current_step,
+            current_price,
+            current_high=current_high,
+            current_low=current_low,
+            current_open=current_open,
+        )
 
         # 3. Handle the new action and STORE the results on `self`.
         # The reward strategies will access these via `env.action_type` and `env.decoded_action_info`.
@@ -321,57 +345,6 @@ class SingleStockTradingEnv(gym.Env):
 
     def close(self):
         print("SingleStockTradingEnv closed.")
-        pass
-
-    # === Private Methods ===
-
-    def _auto_detect_price_column(self, df: pd.DataFrame) -> int:
-        """
-        Auto-detect the price column index from a DataFrame.
-
-        Args:
-            df (pd.DataFrame): Input DataFrame with price data
-
-        Returns:
-            int: Index of the detected price column
-
-        Raises:
-            ValueError: If no suitable price column is found
-        """
-        columns = df.columns.tolist()
-
-        # Priority order for price column detection
-        price_candidates = [
-            "close",
-            "Close",
-            "CLOSE",  # Most common
-            "price",
-            "Price",
-            "PRICE",
-            "adj_close",
-            "Adj Close",
-            "ADJ_CLOSE",
-            "adjusted_close",
-            "Adjusted_Close",
-        ]
-
-        # First, try exact matches
-        for candidate in price_candidates:
-            if candidate in columns:
-                return columns.index(candidate)
-
-        # Then try case-insensitive partial matches
-        for i, col in enumerate(columns):
-            col_lower = col.lower()
-            if any(candidate.lower() in col_lower for candidate in ["close", "price"]):
-                return i
-
-        # If no obvious price column found, raise an error with helpful message
-        raise ValueError(
-            f"Could not auto-detect price column. Available columns: {columns}. "
-            f"Please ensure your DataFrame has a column named 'close', 'price', or similar, "
-            f"or specify the price_column parameter explicitly."
-        )
 
     def _get_current_price(self) -> float:
         """
