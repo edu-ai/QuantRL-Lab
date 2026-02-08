@@ -13,6 +13,7 @@ from .context import MarketContextStep
 from .conversion import NumericConversionStep
 from .sentiment import SentimentEnrichmentStep
 from .technical import TechnicalIndicatorStep
+from .time import TimeFeatureStep
 
 __all__ = [
     "ProcessingStep",
@@ -22,4 +23,5 @@ __all__ = [
     "NumericConversionStep",
     "AnalystEstimatesStep",
     "MarketContextStep",
+    "TimeFeatureStep",
 ]

@@ -336,6 +336,7 @@ class DataProcessor:
             NumericConversionStep,
             SentimentEnrichmentStep,
             TechnicalIndicatorStep,
+            TimeFeatureStep,
         )
 
         # Build pipeline
@@ -370,7 +371,11 @@ class DataProcessor:
         columns_to_convert = kwargs.get("columns_to_convert", None)
         pipeline.add_step(NumericConversionStep(columns=columns_to_convert))
 
-        # 6. Column Cleanup
+        # 6. Time Features
+        # Add cyclical time features (sin/cos) before cleanup drops the date column
+        pipeline.add_step(TimeFeatureStep())
+
+        # 7. Column Cleanup
         # If columns_to_drop is passed, use it; otherwise rely on defaults in step
         # Note: We keep date columns if splitting is required later
         columns_to_drop = kwargs.get("columns_to_drop", None)
