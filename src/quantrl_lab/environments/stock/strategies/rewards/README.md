@@ -21,22 +21,24 @@ Modern financial RL should focus on **risk-adjusted returns** rather than raw pr
 ### 2. `InvalidActionPenalty` (Guard Rail)
 *   **Goal:** Discourage technical errors.
 *   **Mechanism:** Applies a fixed penalty (e.g., -0.1 or -1.0) if the agent tries to sell shares it doesn't own.
-*   **Usage:** Combine with Sortino using `WeightedCompositeReward`.
+*   **Usage:** Combine with Sortino using `CompositeReward`.
 
 ### 3. `PortfolioValueChangeReward` (Legacy/Basic)
 *   **Goal:** Maximize raw profit.
 *   **Mechanism:** Reward = % change in portfolio value.
 *   **Usage:** Use for simple baseline tests or curriculum learning (Stage 1), but lacks risk awareness.
 
-### 4. `WeightedCompositeReward`
+### 4. `CompositeReward`
 *   **Goal:** Combine multiple signals.
+*   **Features:** Supports `auto_scale=True` to normalize component rewards to N(0,1) dynamically.
 *   **Usage:**
     ```python
-    reward_strategy = WeightedCompositeReward(
+    reward_strategy = CompositeReward(
         strategies=[
-            DifferentialSortinoReward(),   # Main Driver
-            InvalidActionPenalty()         # Safety Check
+            DifferentialSortinoReward(),   # Main Driver (Scale ~0.1)
+            InvalidActionPenalty()         # Safety Check (Scale ~ -10.0)
         ],
-        weights=[0.9, 0.1]
+        weights=[0.5, 0.5],
+        auto_scale=True                    # Fixes the scale mismatch automatically!
     )
     ```

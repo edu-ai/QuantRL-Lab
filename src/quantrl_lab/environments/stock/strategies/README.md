@@ -39,7 +39,7 @@ To create a robust, production-grade RL environment, combine these strategies as
 from quantrl_lab.environments.stock.strategies.actions import StandardActionStrategy
 from quantrl_lab.environments.stock.strategies.observations import FeatureAwareObservationStrategy
 from quantrl_lab.environments.stock.strategies.rewards import (
-    WeightedCompositeReward,
+    CompositeReward,
     DifferentialSortinoReward,
     InvalidActionPenalty
 )
@@ -56,7 +56,7 @@ observation_strategy = FeatureAwareObservationStrategy(
 
 # 3. Reward: The "Risk-Adjusted" Objective
 # 90% focus on Sortino Ratio, 10% on avoiding invalid actions
-reward_strategy = WeightedCompositeReward(
+reward_strategy = CompositeReward(
     strategies=[
         DifferentialSortinoReward(target_return=0.0, decay=0.99),
         InvalidActionPenalty(penalty=-0.1)
