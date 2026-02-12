@@ -10,13 +10,9 @@ from rich.rule import Rule  # noqa: F401
 from rich.table import Table
 from stable_baselines3.common.env_util import make_vec_env
 
-from quantrl_lab.environments.strategies.actions import (
+from quantrl_lab.environments.core.interfaces import (
     BaseActionStrategy,
-)
-from quantrl_lab.environments.strategies.observations import (
     BaseObservationStrategy,
-)
-from quantrl_lab.environments.strategies.rewards import (
     BaseRewardStrategy,
 )
 

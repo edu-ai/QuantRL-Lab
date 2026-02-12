@@ -10,11 +10,11 @@ from quantrl_lab.environments.stock.strategies.rewards import (
 from quantrl_lab.experiments.backtesting.config.reward_config import RewardCombination, RewardStrategyConfig
 
 reward_configs = [
-    RewardStrategyConfig(name="portfolio_reward", strategy=PortfolioValueChangeReward),
+    RewardStrategyConfig(name="portfolio_value", strategy=PortfolioValueChangeReward),
     RewardStrategyConfig(name="invalid_penalty", strategy=InvalidActionPenalty, params={"penalty": -1.0}),
     RewardStrategyConfig(name="trend_reward", strategy=TrendFollowingReward),
-    RewardStrategyConfig(name="hold_penalty", strategy=HoldPenalty, params={"penalty": -0.5}),
-    RewardStrategyConfig(name="position_sizing_reward", strategy=PositionSizingRiskReward),
+    RewardStrategyConfig(name="hold", strategy=HoldPenalty, params={"penalty": -0.5}),
+    RewardStrategyConfig(name="position_sizing", strategy=PositionSizingRiskReward),
 ]
 
 # Define preset reward combinations
