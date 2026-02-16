@@ -1,12 +1,8 @@
-from .base_vectorized_strategy import SignalType, VectorizedTradingStrategy
-from .indicator_analysis import (
-    IndicatorAnalysis,
-    IndicatorAnalysisConfig,
-    analyze_single_indicator,
-    rank_indicator_performance,
-)
-from .vectorized_strategy_factory import VectorizedStrategyFactory
-from .vectorized_strategy_implementations import (
+from .base import SignalType, VectorizedTradingStrategy
+from .core import AlphaJob, AlphaResult, SignalMetrics
+from .registry import VectorizedStrategyRegistry
+from .runner import AlphaRunner
+from .strategies import (
     BollingerBandsStrategy,
     MACDCrossoverStrategy,
     MeanReversionStrategy,
@@ -19,11 +15,11 @@ from .vectorized_strategy_implementations import (
 __all__ = [
     "VectorizedTradingStrategy",
     "SignalType",
-    "VectorizedStrategyFactory",
-    "IndicatorAnalysis",
-    "IndicatorAnalysisConfig",
-    "analyze_single_indicator",
-    "rank_indicator_performance",
+    "AlphaJob",
+    "AlphaResult",
+    "SignalMetrics",
+    "VectorizedStrategyRegistry",
+    "AlphaRunner",
     # Strategy implementations
     "TrendFollowingStrategy",
     "MeanReversionStrategy",
