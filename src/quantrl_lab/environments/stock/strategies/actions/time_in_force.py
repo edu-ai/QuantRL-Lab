@@ -9,16 +9,23 @@ from quantrl_lab.environments.core.interfaces import (
     BaseActionStrategy,
 )
 from quantrl_lab.environments.core.types import Actions
+from quantrl_lab.environments.stock.components.portfolio import OrderTIF
 
 if TYPE_CHECKING:  # Solves circular import issues
     from quantrl_lab.environments.core.interfaces import TradingEnvProtocol
 
 
-class StandardActionStrategy(BaseActionStrategy):
+class TimeInForceActionStrategy(BaseActionStrategy):
     """
-    Implements the full-featured action space with a 3-part Box space.
+    Implements an advanced action space with Time-In-Force (TIF)
+    control.
 
-    Action: [action_type, amount, price_modifier]
+    Action: [action_type, amount, price_modifier, tif_type]
+
+    TIF Types:
+    0: GTC (Good Till Cancelled)
+    1: IOC (Immediate or Cancel)
+    2: TTL (Time To Live - uses order_expiration_steps)
     """
 
     def define_action_space(self) -> gym.spaces.Box:
@@ -28,25 +35,29 @@ class StandardActionStrategy(BaseActionStrategy):
         Returns:
             gym.spaces.Box: The action space as a Box space.
         """
-        # We use a symmetric action space [-1, 1] for the action type to help RL agents
-        # explore more effectively. An uninitialized agent outputs values near 0.
-        # If we used [0, N], 0 would map to Action 0 (Hold), causing inactivity.
-        # With [-1, 1], 0 maps to the middle action, encouraging interaction.
+        # Symmetric action space [-1, 1] for categorical actions to aid exploration
+
+        # Action Type
         action_type_low = -1.0
         action_type_high = 1.0
 
-        # Use symmetric space for amount as well to avoid 0.0 default
-        amount_low = -1.0
+        # Amount
+        amount_low = 0.0
         amount_high = 1.0
 
-        # Price modifier for limit orders, typically between 0.9 and 1.1
+        # Price Modifier
         price_mod_low = 0.9
         price_mod_high = 1.1
 
+        # TIF Type (0: GTC, 1: IOC, 2: TTL)
+        # Using symmetric space [-1, 1]
+        tif_low = -1.0
+        tif_high = 1.0
+
         return gym.spaces.Box(
-            low=np.array([action_type_low, amount_low, price_mod_low], dtype=np.float32),
-            high=np.array([action_type_high, amount_high, price_mod_high], dtype=np.float32),
-            shape=(3,),
+            low=np.array([action_type_low, amount_low, price_mod_low, tif_low], dtype=np.float32),
+            high=np.array([action_type_high, amount_high, price_mod_high, tif_high], dtype=np.float32),
+            shape=(4,),
             dtype=np.float32,
         )
 
@@ -65,18 +76,26 @@ class StandardActionStrategy(BaseActionStrategy):
         # --- 1. Decode the action ---
 
         # Rescale Action Type from [-1, 1] to [0, len(Actions)-1]
-        raw_type = np.clip(action[0], -1.0, 1.0)
+        raw_action_type = np.clip(action[0], -1.0, 1.0)
         max_action_index = len(Actions) - 1
-        scaled_type = ((raw_type + 1) / 2) * max_action_index
+        scaled_action_type = ((raw_action_type + 1) / 2) * max_action_index
+        action_type_int = int(np.round(scaled_action_type))
 
-        action_type_int = int(np.round(scaled_type))
-
-        # Rescale Amount from [-1, 1] to [0, 1]
-        # This ensures that an output of 0.0 results in 50% amount, not 0%.
-        raw_amount = np.clip(action[1], -1.0, 1.0)
-        amount_pct = (raw_amount + 1) / 2
-
+        amount_pct = np.clip(action[1], 0.0, 1.0)
         price_modifier = np.clip(action[2], 0.9, 1.1)
+
+        # Rescale TIF from [-1, 1] to [0, 2]
+        raw_tif = np.clip(action[3], -1.0, 1.0)
+        max_tif_index = 2
+        scaled_tif = ((raw_tif + 1) / 2) * max_tif_index
+        tif_int = int(np.round(scaled_tif))
+
+        if tif_int == 0:
+            tif_type = OrderTIF.GTC
+        elif tif_int == 1:
+            tif_type = OrderTIF.IOC
+        else:
+            tif_type = OrderTIF.TTL
 
         try:
             action_type = Actions(action_type_int)
@@ -90,44 +109,48 @@ class StandardActionStrategy(BaseActionStrategy):
 
         # --- 2. Execute the action by calling methods on the PORTFOLIO ---
 
-        # CORRECTED: Get total shares from the portfolio
         had_no_shares = env_self.portfolio.total_shares <= 0
         invalid_action_attempt = False
 
-        # Get current_step from the environment, as the portfolio methods need it
+        # Get current_step from the environment
         current_step = env_self.current_step
 
         if action_type == Actions.Hold:
             pass
         elif action_type == Actions.Buy:
-            # CORRECTED: Call the portfolio's method, passing current_step
+            # Market orders don't use TIF (usually IOC by definition, handled internally)
             env_self.portfolio.execute_market_order(action_type, current_price, amount_pct, current_step)
         elif action_type == Actions.Sell:
             if had_no_shares:
                 invalid_action_attempt = True
-            # CORRECTED: Call the portfolio's method
             env_self.portfolio.execute_market_order(action_type, current_price, amount_pct, current_step)
         elif action_type == Actions.LimitBuy:
-            # CORRECTED: Call the portfolio's method
-            env_self.portfolio.place_limit_order(action_type, current_price, amount_pct, price_modifier, current_step)
+            env_self.portfolio.place_limit_order(
+                action_type, current_price, amount_pct, price_modifier, current_step, tif=tif_type
+            )
         elif action_type == Actions.LimitSell:
             if had_no_shares:
                 invalid_action_attempt = True
-            # CORRECTED: Call the portfolio's method
-            env_self.portfolio.place_limit_order(action_type, current_price, amount_pct, price_modifier, current_step)
+            env_self.portfolio.place_limit_order(
+                action_type, current_price, amount_pct, price_modifier, current_step, tif=tif_type
+            )
         elif action_type in [Actions.StopLoss, Actions.TakeProfit]:
             if had_no_shares:
                 invalid_action_attempt = True
-            # CORRECTED: Call the portfolio's method
+
+            # Stop orders cannot be IOC usually (they need to rest until triggered)
+            # If IOC is selected for Stop, Portfolio handles it (likely rejects or ignores)
+            # but we pass it anyway as the portfolio owns that validation logic.
             env_self.portfolio.place_risk_management_order(
-                action_type, current_price, amount_pct, price_modifier, current_step
+                action_type, current_price, amount_pct, price_modifier, current_step, tif=tif_type
             )
 
-        # --- 3. Return decoded info (No changes needed here) ---
+        # --- 3. Return decoded info ---
         decoded_info = {
             "type": action_type.name,
             "amount_pct": amount_pct,
             "price_modifier": price_modifier,
+            "tif": tif_type.value,
             "raw_input": action,
             "invalid_action_attempt": invalid_action_attempt,
         }

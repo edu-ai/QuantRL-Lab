@@ -175,7 +175,7 @@ class StockPortfolio(Portfolio):
 
         # === Runtime error checks ===
         if self.balance <= 0 and action_type == Actions.Buy:
-            raise ValueError("Insufficient balance to execute buy order")
+            return  # Insufficient balance to execute buy order
         if action_type not in [Actions.Buy, Actions.Sell]:
             raise ValueError("Invalid action type for market order")
 
