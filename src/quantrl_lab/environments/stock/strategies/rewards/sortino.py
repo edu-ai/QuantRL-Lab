@@ -94,7 +94,9 @@ class DifferentialSortinoReward(BaseRewardStrategy):
         # If Current_Return is negative, it's penalized by volatility.
         # If positive, it's scaled by the risk environment.
 
-        return ret / downside_dev
+        # Clip the reward to prevent exploding gradients when downside deviation is near zero.
+        raw_reward = ret / downside_dev
+        return float(np.clip(raw_reward, -10.0, 10.0))
 
     def on_step_end(self, env: TradingEnvProtocol):
         pass
