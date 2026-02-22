@@ -66,13 +66,24 @@ class SentimentEnrichmentStep:
             return data
 
         try:
+            # SentimentFeatureGenerator expects 'Date' as a column.
+            # If Date is the index, temporarily move it to a column.
+            restored_index = False
+            df = data
+            if "Date" not in df.columns and df.index.name == "Date":
+                df = df.reset_index()
+                restored_index = True
+
             generator = SentimentFeatureGenerator(
                 self.provider,
                 self.config,
                 self.news_data,
                 self.fillna_strategy,
             )
-            result = generator.generate(data)
+            result = generator.generate(df)
+
+            if restored_index and "Date" in result.columns:
+                result = result.set_index("Date")
 
             # Update metadata
             metadata.news_sentiment_applied = True

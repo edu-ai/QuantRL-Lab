@@ -1,6 +1,7 @@
+import asyncio
 import time
 from datetime import datetime, timedelta
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import pandas as pd
 import yfinance as yf
@@ -28,9 +29,7 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         max_retries: int = 3,
         delay: int = 1,
     ):
-        # Remark:
-        # Do not initialize the ticker related variables here
-        # or else the class object will not be reusable
+        # Do not initialize ticker-related variables here to keep the object reusable
         self.max_retries = max_retries
         self.delay = delay
 
@@ -47,9 +46,7 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         pass
 
     def is_connected(self) -> bool:
-        """
-        yfinance uses HTTP requests - assume connected if no network issues.
-        """
+        """yfinance uses HTTP requests - assume connected if no network issues."""
         return True
 
     def list_available_instruments(
@@ -68,28 +65,24 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         **kwargs: Any,
     ) -> pd.DataFrame:
         """
-        Get all the fundamental related data for a symbol, including
-        income statement, cash flow, and balance sheet.
+        Get all fundamental data for a symbol including income
+        statement, cash flow, and balance sheet.
 
         Args:
-            symbol: Stock symbol, only a single symbol is supported. Defaults to None.
-            frequency: Frequency of data. Defaults to "quarterly".
-            **kwargs: Additional yfinance parameters
+            symbol (str): Stock symbol; only a single symbol is supported.
+            frequency (str, optional): Frequency of data. Defaults to "quarterly".
+            **kwargs: Additional yfinance parameters.
 
         Returns:
-            pd.DataFrame: DataFrame with raw fundamental data
+            pd.DataFrame: DataFrame with raw fundamental data.
         """
-
-        # Get the financial statements
         income_statement = self._get_income_statement(symbol, frequency=frequency)
         cash_flow = self._get_cash_flow(symbol, frequency=frequency)
         balance_sheet = self._get_balance_sheet(symbol, frequency=frequency)
 
-        # Merge all the dataframes
         df = income_statement.merge(cash_flow, on="Date", how="outer")
         df = df.merge(balance_sheet, on="Date", how="outer")
 
-        # Add symbol column
         df["Symbol"] = symbol
 
         essential_columns = [
@@ -105,11 +98,11 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Get income statement for a symbol.
 
         Args:
-            symbol (str): Stock symbol, only a single symbol is supported.
-            frequency (str, optional): Defaults to "quarterly".
+            symbol (str): Stock symbol; only a single symbol is supported.
+            frequency (str, optional): Frequency of data. Defaults to "quarterly".
 
         Returns:
-            pd.DataFrame: DataFrame with raw income statement data
+            pd.DataFrame: DataFrame with raw income statement data.
         """
         logger.info("Fetching income statement for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
@@ -122,11 +115,11 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Get cash flow statement for a symbol.
 
         Args:
-            symbol (str): Stock symbol, only a single symbol is supported.
-            frequency (str, optional): Defaults to "quarterly".
+            symbol (str): Stock symbol; only a single symbol is supported.
+            frequency (str, optional): Frequency of data. Defaults to "quarterly".
 
         Returns:
-            pd.DataFrame: DataFrame with raw cash flow data
+            pd.DataFrame: DataFrame with raw cash flow data.
         """
         logger.info("Fetching cash flow statement for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
@@ -139,11 +132,11 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
         Get balance sheet for a symbol.
 
         Args:
-            symbol (str): Stock symbol, only a single symbol is supported.
-            frequency (str, optional): Defaults to "quarterly".
+            symbol (str): Stock symbol; only a single symbol is supported.
+            frequency (str, optional): Frequency of data. Defaults to "quarterly".
 
         Returns:
-            pd.DataFrame: DataFrame with raw balance sheet data
+            pd.DataFrame: DataFrame with raw balance sheet data.
         """
         logger.info("Fetching balance sheet for {symbol}", symbol=symbol)
         ticker = yf.Ticker(symbol)
@@ -164,52 +157,42 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
 
         Args:
             symbols (Union[str, List[str]]): A single symbol or a list of symbols.
-            start (Union[str, datetime], optional): start date or datetime
-            end (Union[str, datetime], optional): end date or datetime
-            timeframe (str, optional): period. Defaults to "1d".
-            **kwargs: Additional yfinance parameters, including 'period' (e.g., '1y', 'max')
-
-        Raises:
-             ValueError: All elements in 'symbols' must be strings
-             TypeError: 'symbols' must be a string or a list of strings
-             ValueError: Invalid interval
-             ValueError: Invalid start or end date
-             ValueError: Start date should be before end date
-             ValueError: For 1 min interval, the start date must be within 30 days from the current date
+            start (Union[str, datetime], optional): Start date or datetime.
+            end (Union[str, datetime], optional): End date or datetime.
+            timeframe (str, optional): Bar interval. Defaults to "1d".
+            **kwargs: Additional yfinance parameters, including 'period' (e.g., '1y', 'max').
 
         Returns:
-            pd.DataFrame: output dataframe with OHLCV data (raw)
-        """
+            pd.DataFrame: Output dataframe with OHLCV data (raw).
 
-        # --------- Runtime Error Handling ------------
-        # Normalize symbols using utility (validates type and converts to list)
+        Raises:
+            ValueError: If all elements in 'symbols' are not strings.
+            TypeError: If 'symbols' is not a string or list of strings.
+            ValueError: If interval is invalid.
+            ValueError: If start or end date is invalid.
+            ValueError: If start date is not before end date.
+            ValueError: If 1 min interval start date is not within 30 days from today.
+        """
         symbol_list = normalize_symbols(symbols)
 
-        # Validate timeframe
         if timeframe not in YFinanceInterval.values():
             raise InvalidParametersError(f"Invalid interval. Must be one of {YFinanceInterval.values()}.")
 
-        # Handle period vs start/end
         period = kwargs.pop("period", None)
         start_dt, end_dt = None, None
 
         if start is not None:
-            # Normalize and validate date range using utility
             start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True, validate_order=True)
 
-            # Yahoo Finance specific validation for 1m interval
+            # Yahoo Finance restricts 1m interval data to the last 30 days
             if timeframe == "1m" and start_dt < datetime.now() - timedelta(days=30):
-                # This is the rule set by Yahoo Finance
                 raise InvalidParametersError(
                     "For 1 min interval, the start date must be within 30 days from the current date."
                 )
         elif period is None:
-            # If neither start nor period is provided, default to a reasonable start (e.g., 1 month ago)
-            # or we could just raise an error. Given the protocol change, let's be flexible.
             logger.warning("Neither 'start' nor 'period' provided. Defaulting to period='1mo'")
             period = "1mo"
 
-        # Retry logic for fetching data
         for attempt in range(self.max_retries):
             try:
                 result = pd.DataFrame()
@@ -245,3 +228,67 @@ class YFinanceDataLoader(DataSource, FundamentalDataCapable, HistoricalDataCapab
                         error=str(e),
                     )
                     return pd.DataFrame()
+
+    def _fetch_single_symbol(
+        self,
+        symbol: str,
+        start_dt: Optional[datetime],
+        end_dt: Optional[datetime],
+        timeframe: str,
+        period: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Fetch OHLCV data for a single symbol (blocking). Used by
+        async_fetch_ohlcv.
+
+        Args:
+            symbol (str): Stock symbol to fetch.
+            start_dt (datetime, optional): Start datetime.
+            end_dt (datetime, optional): End datetime.
+            timeframe (str): Bar interval.
+            period (str, optional): yfinance period string (e.g. '1mo'). Defaults to None.
+
+        Returns:
+            pd.DataFrame: OHLCV data with reset index.
+        """
+        ticker = yf.Ticker(symbol)
+        if start_dt is not None:
+            data = ticker.history(start=start_dt, end=end_dt, interval=timeframe).assign(Symbol=symbol)
+        else:
+            data = ticker.history(period=period or "1mo", interval=timeframe).assign(Symbol=symbol)
+        return data.reset_index()
+
+    async def async_fetch_ohlcv(
+        self,
+        symbol: str,
+        start: Optional[Union[str, datetime]] = None,
+        end: Optional[Union[str, datetime]] = None,
+        timeframe: str = "1d",
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async wrapper around yfinance OHLCV fetch for a single symbol.
+
+        Uses asyncio.to_thread() to run the blocking yfinance SDK call in a
+        background thread, keeping the event loop free for concurrent fetches.
+
+        Args:
+            symbol (str): Stock symbol to fetch.
+            start (Union[str, datetime], optional): Start date or datetime.
+            end (Union[str, datetime], optional): End date or datetime.
+            timeframe (str, optional): Bar interval. Defaults to "1d".
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (symbol, DataFrame). DataFrame is empty on failure.
+        """
+        start_dt, end_dt = None, None
+        if start is not None:
+            start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+
+        try:
+            df = await asyncio.to_thread(self._fetch_single_symbol, symbol, start_dt, end_dt, timeframe)
+            if df.empty:
+                logger.warning("async_fetch_ohlcv: empty result for {symbol}", symbol=symbol)
+            return symbol, df
+        except Exception as e:
+            logger.error("async_fetch_ohlcv failed for {symbol}: {e}", symbol=symbol, e=e)
+            return symbol, pd.DataFrame()

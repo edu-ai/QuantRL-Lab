@@ -38,10 +38,9 @@ class AlphaVantageDataLoader(
 ):
     """Alpha Vantage implementation that provides various datasets."""
 
-    # Constants
     DEFAULT_MAX_RETRIES = 3
     DEFAULT_RETRY_DELAY = 5
-    DEFAULT_RATE_LIMIT_DELAY = 1.2  # Free tier: 25 requests/day, 1 request/second burst limit
+    DEFAULT_RATE_LIMIT_DELAY = 1.2
     NUMERIC_COLUMNS = ["Open", "High", "Low", "Close", "Volume", "Adj_close"]
 
     def __init__(
@@ -54,7 +53,7 @@ class AlphaVantageDataLoader(
         self.api_key = api_key or os.environ.get("ALPHA_VANTAGE_API_KEY")
         self.max_retries = max_retries
         self.delay = delay
-        self.rate_limit_delay = rate_limit_delay  # Delay between requests (free tier: 1 req/sec)
+        self.rate_limit_delay = rate_limit_delay
         self._last_request_time: float = 0
 
     @property
@@ -70,9 +69,7 @@ class AlphaVantageDataLoader(
         pass
 
     def is_connected(self) -> bool:
-        """
-        Alpha Vantage uses HTTP requests - assume connected if no network issues.
-        """
+        """Alpha Vantage uses HTTP requests - assume connected if no network issues."""
         return True
 
     def list_available_instruments(
@@ -90,8 +87,6 @@ class AlphaVantageDataLoader(
         logger.warning("Alpha Vantage does not support listing available instruments.")
         return []
 
-    # Historical Data Method #
-    # Historical Data Method #
     def get_historical_ohlcv_data(
         self,
         symbols: str,
@@ -104,32 +99,30 @@ class AlphaVantageDataLoader(
         Get historical OHLCV data from Alpha Vantage.
 
         Args:
-            symbols: Stock symbol to fetch data for
-            start: Optional start date for filtering. If None, no start filtering is applied.
-            end: Optional end date for filtering. If None, no end filtering is applied.
-            timeframe: Time interval - "1d" (daily), or intraday ("1min", "5min", "15min", "30min", "60min")
-            **kwargs: Additional parameters including:
-                     - 'adjusted' (bool, default=False): For daily data only (premium feature)
-                     - 'outputsize' (str): "compact" (default, last 100 points) or "full" (premium)
-                     - 'month' (str): For intraday data, specify "YYYY-MM" for historical month (premium)
-
-        Note on free tier limitations:
-            - outputsize='full' requires a premium API key
-            - Historical intraday data with 'month' parameter requires premium
-            - Rate limit: 25 requests/day, 1 request/second burst limit
+            symbols (str): Stock symbol to fetch data for.
+            start (Union[str, datetime], optional): Start date for filtering.
+                If None, no start filtering is applied. Defaults to None.
+            end (Union[str, datetime], optional): End date for filtering.
+                If None, no end filtering is applied. Defaults to None.
+            timeframe (str, optional): Time interval - "1d" (daily), or intraday
+                ("1min", "5min", "15min", "30min", "60min"). Defaults to "1d".
+            **kwargs: Additional parameters. 'adjusted' (bool) enables split/dividend
+                adjustment for daily data (premium). 'outputsize' (str) is "compact" or "full"
+                (premium). 'month' (str, "YYYY-MM") fetches historical intraday month (premium).
 
         Returns:
-            pd.DataFrame: OHLCV data, optionally filtered by date range
+            pd.DataFrame: OHLCV data, optionally filtered by date range.
+
+        Note:
+            outputsize='full' and historical intraday 'month' parameter require a premium API key.
+            Rate limit: 25 requests/day, 1 request/second burst limit on the free tier.
         """
-        # Extract adjusted parameter from kwargs, default to False
         adjusted = kwargs.pop("adjusted", False)
 
-        # Normalize dates using utility (allows None values for optional filtering)
         parsed_start_date = None
         parsed_end_date = None
 
         if start is not None or end is not None:
-            # Only normalize if at least one date is provided
             if start is not None and end is not None:
                 parsed_start_date, parsed_end_date = normalize_date_range(
                     start, end, default_end_to_now=False, validate_order=True
@@ -143,7 +136,6 @@ class AlphaVantageDataLoader(
 
                 parsed_end_date = normalize_date(end)
 
-        # Log what we're fetching
         if parsed_start_date or parsed_end_date:
             if parsed_start_date and parsed_end_date:
                 logger.info(
@@ -174,10 +166,8 @@ class AlphaVantageDataLoader(
                 symbol=symbols,
             )
 
-        # Determine which API endpoint to use based on timeframe
         if timeframe == "1d":
-            # For daily data, default to compact if not specified
-            # Note: outputsize='full' is a premium feature on Alpha Vantage free tier
+            # Default to compact to avoid premium-only "full" output size
             if "outputsize" not in kwargs:
                 kwargs["outputsize"] = "compact"
                 logger.debug(
@@ -198,7 +188,6 @@ class AlphaVantageDataLoader(
             if adjusted:
                 logger.warning("Adjusted prices not available for intraday data, using raw prices")
 
-            # Log info about intraday data fetching
             if "month" in kwargs:
                 logger.info(f"Fetching {timeframe} intraday data for {symbols} for month: {kwargs['month']}")
             else:
@@ -219,7 +208,6 @@ class AlphaVantageDataLoader(
             logger.error(f"Failed to fetch data for {symbols}")
             return pd.DataFrame()
 
-        # Extract time series data
         if time_series_key not in raw_data:
             logger.error(
                 f"Expected key '{time_series_key}' not found in API response for {symbols}. "
@@ -235,18 +223,14 @@ class AlphaVantageDataLoader(
             logger.warning(f"Empty time series data for {symbols}")
             return pd.DataFrame()
 
-        # Convert to DataFrame
         df = pd.DataFrame.from_dict(time_series, orient="index")
 
-        # Get the appropriate column mapping and rename columns
         column_mapping = ALPHA_VANTAGE_COLUMN_MAPPER.get_mapping(timeframe, adjusted)
         df = df.rename(columns=column_mapping)
 
-        # Drop any columns that weren't in our mapping
-        expected_columns = list(set(column_mapping.values()))  # Remove duplicates
+        expected_columns = list(set(column_mapping.values()))
         df = df[df.columns.intersection(expected_columns)]
 
-        # Convert string values to numeric using utility
         numeric_columns = self.NUMERIC_COLUMNS.copy()
         if "Dividend" in df.columns:
             numeric_columns.append("Dividend")
@@ -255,14 +239,12 @@ class AlphaVantageDataLoader(
 
         df = convert_columns_to_numeric(df, columns=numeric_columns, errors="coerce")
 
-        # Convert index to datetime
         df.index = pd.to_datetime(df.index)
         df.index.name = "Date"
 
-        # Sort by date (Alpha Vantage returns newest first)
+        # Alpha Vantage returns newest first, so sort ascending
         df = df.sort_index()
 
-        # Apply date filtering if dates are provided
         if parsed_start_date is not None:
             df = df[df.index >= parsed_start_date]
         if parsed_end_date is not None:
@@ -289,7 +271,6 @@ class AlphaVantageDataLoader(
 
         return df
 
-    # Fundamental Data Method #
     def get_fundamental_data(
         self, symbol: str, metrics: List[Union[FundamentalMetric, str]], **kwargs: Any
     ) -> Union[pd.DataFrame, Dict]:
@@ -298,14 +279,14 @@ class AlphaVantageDataLoader(
         Alpha Vantage API calls.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            metrics: List of FundamentalMetric enums or strings
-            **kwargs: Additional parameters including 'return_format' ('dict' or 'dataframe', default: 'dict')
+            symbol (str): Stock symbol to fetch data for.
+            metrics (List[Union[FundamentalMetric, str]]): List of FundamentalMetric enums or strings.
+            **kwargs: Additional parameters. 'return_format' (str) is 'dict' or 'dataframe'.
+                Defaults to 'dict'.
 
         Returns:
-            Dict with combined fundamental data or DataFrame
+            Union[pd.DataFrame, Dict]: Dict with combined fundamental data.
         """
-        # return_format = kwargs.get("return_format", "dict")
         results = {}
 
         # Map metrics to private methods - use enum objects as keys consistently
@@ -324,7 +305,6 @@ class AlphaVantageDataLoader(
         logger.info(f"Fetching fundamental data for {symbol}")
 
         for metric in metrics:
-            # Handle both enum and string inputs
             if isinstance(metric, str):
                 try:
                     metric_enum = FundamentalMetric(metric.lower())
@@ -349,15 +329,8 @@ class AlphaVantageDataLoader(
                 logger.warning(f"Unsupported metric '{metric_enum}' for symbol {symbol}")
                 results[metric_enum.value] = None
 
-        # TODO: Implement DataFrame conversion for cleaner output
-
-        # Return format based on user preference
-        # if return_format.lower() == "dataframe":
-        #     return self._convert_to_dataframe(results, symbol)
-        # else:
         return results
 
-    # News Data Method #
     def get_news_data(
         self,
         symbols: Union[str, List[str]],
@@ -367,30 +340,27 @@ class AlphaVantageDataLoader(
         **kwargs: Any,
     ) -> pd.DataFrame:
         """
-        Fetch news data for given symbols from Alpha Vantage. This
-        method retrieves news articles related to the specified symbols
-        within the given date range. It supports additional parameters
-        like 'sort' and 'topics' to customize the news data.
+        Fetch news data for given symbols from Alpha Vantage.
+
+        Retrieves news articles related to the specified symbols within the given date range.
+        Supports additional parameters like 'sort' and 'topics' to customize the news data.
 
         Args:
-            symbols: Symbols to fetch news for.
-            start: Start datetime for news data.
-            end: End datetime for news. Defaults to None, which means current time.
-            limit: Maximum number of news items to fetch. Defaults to 50.
+            symbols (Union[str, List[str]]): Symbols to fetch news for.
+            start (Union[str, datetime]): Start datetime for news data.
+            end (Union[str, datetime], optional): End datetime for news. Defaults to None (current time).
+            limit (int, optional): Maximum number of news items to fetch. Defaults to 50.
             **kwargs: Additional parameters for the API request, such as 'sort' or 'topics'.
 
         Returns:
-            pd.DataFrame: DataFrame containing news data for the
-            specified symbols.
+            pd.DataFrame: DataFrame containing news data for the specified symbols.
         """
-        # Convert dates to Alpha Vantage format
         time_from = format_av_datetime(start)
 
         if end is None:
             end = datetime.now()
         time_to = format_av_datetime(end)
 
-        # Handle symbols - can be string or list
         if isinstance(symbols, str):
             tickers = symbols
         else:
@@ -405,32 +375,26 @@ class AlphaVantageDataLoader(
             "limit": str(limit),
         }
 
-        # Check for additional sort parameter in kwargs
         if "sort" in kwargs:
             params["sort"] = kwargs.pop("sort")
             logger.debug(f"Using sort order: {params['sort']}")
 
-        # Check for additional topics parameter in kwargs
         if "topics" in kwargs:
             params["topics"] = kwargs.pop("topics")
             logger.debug(f"Using topics from kwargs: {params['topics']}")
 
         params.update(kwargs)
 
-        # Make the API request (note: NEWS_SENTIMENT doesn't use symbol parameter,
-        # it uses tickers instead, so we pass an empty string for symbol)
         news_data = self._make_api_request("NEWS_SENTIMENT", symbol="", **params)
 
         news_df = pd.DataFrame(news_data["feed"]) if news_data and "feed" in news_data else pd.DataFrame()
 
-        # If we got an empty DataFrame, return it early
         if news_df.empty:
             logger.warning(
                 f"No news data retrieved for {tickers}. This may be due to rate limits or no data available."
             )
             return news_df
 
-        # Rename time_published to created_at to standardize the column name
         if "time_published" in news_df.columns:
             news_df.rename(columns={"time_published": "created_at"}, inplace=True)
         else:
@@ -438,7 +402,6 @@ class AlphaVantageDataLoader(
             logger.debug(f"Available columns: {list(news_df.columns)}")
             return pd.DataFrame()
 
-        # Convert created_at to datetime
         try:
             news_df["created_at"] = pd.to_datetime(news_df["created_at"], format="%Y%m%dT%H%M%S")
             news_df["Date"] = news_df["created_at"].dt.date
@@ -464,14 +427,12 @@ class AlphaVantageDataLoader(
         list.
 
         Args:
-            sentiment_list (List[Dict]): A list of dictionaries
-            containing sentiments for different tickers
-            ticker_symbol (str): The ticker symbol to search
-            for (e.g., 'AAPL').
+            sentiment_list (List[Dict]): A list of dictionaries containing sentiments
+                for different tickers.
+            ticker_symbol (str): The ticker symbol to search for (e.g., 'AAPL').
 
         Returns:
-            Optional[float]: The sentiment score for the specified ticker,
-            or None if not found.
+            Optional[float]: The sentiment score for the specified ticker, or None if not found.
         """
         if not isinstance(sentiment_list, list):
             return None
@@ -481,7 +442,6 @@ class AlphaVantageDataLoader(
                 return item["ticker_sentiment_score"]
         return None
 
-    # TODO: fix overengineering
     def get_macro_data(
         self,
         indicators: Union[str, List[str], Dict[str, Dict]],
@@ -490,34 +450,28 @@ class AlphaVantageDataLoader(
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
-        Get macroeconomic data for specified indicators. This method
-        supports both standard indicator names and advanced dictionary
-        format where each indicator can have its own parameters. e.g.: {
-        "real_gdp": {"interval": "quarterly"}, "treasury_yield":
-        {"interval": "monthly", "maturity": "10year"} }
+        Get macroeconomic data for specified indicators.
+
+        Supports both standard indicator names and advanced dictionary format where each
+        indicator can have its own parameters, e.g.:
+        {"real_gdp": {"interval": "quarterly"}, "treasury_yield": {"interval": "monthly", "maturity": "10year"}}
 
         Args:
-            indicators (Union[str, List[str], Dict[str, Dict]]): indicator(s) to fetch data for.
-            start (Union[str, datetime]): time from
-            end (Union[str, datetime]): time to
-            **kwargs: Additional parameters for the API request
+            indicators (Union[str, List[str], Dict[str, Dict]]): Indicator(s) to fetch data for.
+            start (Union[str, datetime]): Start date.
+            end (Union[str, datetime]): End date.
+            **kwargs: Additional parameters for the API request.
 
         Returns:
-            Dict[str, Any]: Dictionary containing macroeconomic data for the
-            specified indicators. Each key is the indicator name, and the value
-            is the data fetched from Alpha Vantage.
+            Dict[str, Any]: Dictionary containing macroeconomic data for the specified indicators.
+                Each key is the indicator name, and the value is the fetched data.
         """
-
-        # Handle different input formats
         if isinstance(indicators, dict):
-            # Advanced dict format with per-indicator params
             return self._get_macro_data_with_params(indicators, **kwargs)
         else:
-            # Standard format - convert to dict format internally
             if isinstance(indicators, (str, MacroIndicator)):
                 indicators = [indicators]
 
-            # Create dict with empty params for each indicator
             indicator_params = {ind: {} for ind in indicators}
             return self._get_macro_data_with_params(indicator_params, **kwargs)
 
@@ -525,18 +479,19 @@ class AlphaVantageDataLoader(
         self, indicator_params: Dict[Union[str, MacroIndicator], Dict], **global_kwargs
     ) -> Dict[str, Any]:
         """
-        _summary_
+        Fetch macro data for multiple indicators with per-indicator
+        parameter overrides.
 
         Args:
-            indicator_params (Dict[Union[str, MacroIndicator], Dict]): _description_
+            indicator_params (Dict[Union[str, MacroIndicator], Dict]): Mapping from indicator
+                to its specific keyword arguments.
+            **global_kwargs: Global parameters applied to all indicators unless overridden.
 
         Returns:
-            Dict[str, Any]: _description_
+            Dict[str, Any]: Mapping from indicator name to fetched data (or None on failure).
         """
-
         results = {}
 
-        # Map indicators to private methods
         indicator_methods = {
             MacroIndicator.REAL_GDP: self._get_real_gdp_data,
             MacroIndicator.REAL_GDP_PER_CAPITA: self._get_real_gdp_per_capita_data,
@@ -553,7 +508,6 @@ class AlphaVantageDataLoader(
         logger.info(f"Fetching macro data for indicators: {list(indicator_params.keys())}")
 
         for indicator, ind_kwargs in indicator_params.items():
-            # Convert string to enum if needed
             if isinstance(indicator, str):
                 try:
                     indicator_enum = MacroIndicator(indicator.lower())
@@ -597,17 +551,15 @@ class AlphaVantageDataLoader(
         Get method-specific parameters for macroeconomic indicators.
 
         Args:
-            indicator (MacroIndicator): enum to filter kwargs for.
-            kwargs (Dict): additional parameters for the API request.
-
-        Raises:
-            ValueError: If the interval or maturity parameters are invalid
-            ValueError: If the indicator is not supported
+            indicator (MacroIndicator): Enum to filter kwargs for.
+            kwargs (Dict): Additional parameters for the API request.
 
         Returns:
             Dict: Filtered kwargs for the specific indicator method.
-        """
 
+        Raises:
+            ValueError: If the interval or maturity parameters are invalid.
+        """
         indicator_config = {
             MacroIndicator.REAL_GDP: {
                 "params": ["interval"],
@@ -651,7 +603,6 @@ class AlphaVantageDataLoader(
         config = indicator_config.get(indicator, {"params": []})
         filtered_kwargs = {}
 
-        # Handle interval parameter with validation
         if "interval" in config.get("params", []):
             interval = kwargs.get("interval", config.get("default_interval"))
             valid_intervals = config.get("valid_intervals", [])
@@ -664,7 +615,6 @@ class AlphaVantageDataLoader(
             if interval:
                 filtered_kwargs["interval"] = interval
 
-        # Handle maturity parameter with validation
         if "maturity" in config.get("params", []):
             maturity = kwargs.get("maturity", config.get("default_maturity"))
             valid_maturities = config.get("valid_maturities", [])
@@ -683,25 +633,30 @@ class AlphaVantageDataLoader(
 
         return filtered_kwargs
 
-    # Common method for API requests #
     def _make_api_request(self, function: str, symbol: str = "", **params) -> Optional[Dict[str, Any]]:
-        """Centralized private method for making Alpha Vantage API
-        requests."""
+        """
+        Centralized private method for making Alpha Vantage API
+        requests.
 
-        # Respect rate limit (free tier: 1 request per second)
+        Args:
+            function (str): Alpha Vantage function name (e.g., 'TIME_SERIES_DAILY').
+            symbol (str, optional): Stock symbol. Omitted for macro/news endpoints. Defaults to "".
+            **params: Additional query parameters for the API request.
+
+        Returns:
+            Optional[Dict[str, Any]]: Parsed JSON response, or None if all retries are exhausted.
+        """
         elapsed = time.time() - self._last_request_time
         if elapsed < self.rate_limit_delay:
             sleep_time = self.rate_limit_delay - elapsed
             time.sleep(sleep_time)
 
-        # Build URL parameters
         url_params = {
             "function": function,
             "apikey": self.api_key,
             **params,
         }
 
-        # Only add symbol if it's provided (NEWS_SENTIMENT doesn't use symbol)
         if symbol:
             url_params["symbol"] = symbol
 
@@ -713,7 +668,6 @@ class AlphaVantageDataLoader(
                 if response.status_code == 200:
                     data = response.json()
 
-                    # Check for Alpha Vantage specific errors
                     if "Error Message" in data:
                         error_msg = f"API Error: {data['Error Message']}"
                         if symbol:
@@ -721,7 +675,6 @@ class AlphaVantageDataLoader(
                         logger.error(error_msg)
                         return None
 
-                    # Log Information key content for debugging
                     if "Information" in data:
                         logger.warning(f"API Information message: {data['Information']}")
                         return data
@@ -744,7 +697,7 @@ class AlphaVantageDataLoader(
                     logger.info(success_msg)
                     return data
 
-                elif response.status_code == 429:  # Rate limit
+                elif response.status_code == 429:
                     if attempt < self.max_retries - 1:
                         wait_time = self.delay * (2**attempt)
                         logger.warning(f"Rate limited, waiting {wait_time}s before retry...")
@@ -778,61 +731,57 @@ class AlphaVantageDataLoader(
         logger.error(error_msg)
         return None
 
-    # Private Fundamental Data Methods #
     def _get_company_overview(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Fetch company overview data from Alpha Vantage. This includes
-        key statistics and company information.
+        Fetch company overview data from Alpha Vantage including key
+        statistics and company info.
 
         Args:
             symbol (str): Stock symbol to fetch data for.
 
         Returns:
-            Optional[Dict[str, Any]]: data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Data in dictionary format, or None if request fails.
         """
         return self._make_api_request("OVERVIEW", symbol)
 
     def _get_etf_profile(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch ETF profile data from Alpha Vantage.
-        This includes ETF holdings and other profile information.
-        Note: ETF profile is not typically used in our context,
-        but included for completeness.
+        """
+        Fetch ETF profile data from Alpha Vantage including ETF holdings
+        and other profile info.
+
+        Note: ETF profile is not typically used in our context, but included for completeness.
 
         Args:
             symbol (str): ETF symbol to fetch data for.
 
         Returns:
-            Optional[Dict[str, Any]]: data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Data in dictionary format, or None if request fails.
         """
         return self._make_api_request("ETF_PROFILE", symbol)
 
     def _get_dividend_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Fetch dividend payment history from Alpha Vantage. This includes
-        historical dividend payments for the given symbol.
+        Fetch dividend payment history from Alpha Vantage.
 
         Args:
             symbol (str): Stock symbol to fetch dividend data for.
 
         Returns:
-            Optional[Dict[str, Any]]: data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Data in dictionary format, or None if request fails.
         """
         return self._make_api_request("DIVIDENDS", symbol)
 
     def _get_splits_data(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch stock split history from Alpha Vantage.
-        This includes historical stock splits for the given symbol.
+        """
+        Fetch stock split history from Alpha Vantage.
+
         Note: not useful in our context, but included for completeness.
 
         Args:
             symbol (str): Stock symbol to fetch split data for.
 
         Returns:
-            Optional[Dict[str, Any]]: data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Data in dictionary format, or None if request fails.
         """
         return self._make_api_request("SPLITS", symbol)
 
@@ -844,8 +793,8 @@ class AlphaVantageDataLoader(
             symbol (str): Stock symbol to fetch income statement for.
 
         Returns:
-            Optional[Dict[str, Any]]: Income statement data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Income statement data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("INCOME_STATEMENT", symbol)
 
@@ -857,8 +806,8 @@ class AlphaVantageDataLoader(
             symbol (str): Stock symbol to fetch balance sheet for.
 
         Returns:
-            Optional[Dict[str, Any]]: Balance sheet data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Balance sheet data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("BALANCE_SHEET", symbol)
 
@@ -870,46 +819,45 @@ class AlphaVantageDataLoader(
             symbol (str): Stock symbol to fetch cash flow statement for.
 
         Returns:
-            Optional[Dict[str, Any]]: Cash flow statement data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Cash flow statement data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("CASH_FLOW", symbol)
 
     def _get_earnings_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Fetch earnings data from Alpha Vantage. This includes.
+        Fetch earnings data from Alpha Vantage.
 
         Args:
             symbol (str): Stock symbol to fetch earnings data for.
 
         Returns:
-            Optional[Dict[str, Any]]: Earnings data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Earnings data in dictionary format, or None if request fails.
         """
         return self._make_api_request("EARNINGS", symbol)
-
-    # Private Historical Data Methods #
 
     def _get_intraday_data(
         self,
         symbol: str,
-        interval: str = "5min",  # Valid Time intervals: 1min, 5min, 15min, 30min, 60min
+        interval: str = "5min",
         outputsize: str = "full",
         month: Optional[str] = None,
-        **kwargs,  # not required but for future extensibility
+        **kwargs,
     ) -> Optional[Dict[str, Any]]:
         """
         Fetch intraday data from Alpha Vantage.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            interval: Time interval (1min, 5min, 15min, 30min, 60min)
-            outputsize: 'compact' or 'full'
-            month: Optional month in YYYY-MM format for historical intraday data
-            **kwargs: Additional Alpha Vantage API parameters
+            symbol (str): Stock symbol to fetch data for.
+            interval (str, optional): Time interval (1min, 5min, 15min, 30min, 60min).
+                Defaults to "5min".
+            outputsize (str, optional): 'compact' or 'full'. Defaults to "full".
+            month (str, optional): Month in YYYY-MM format for historical intraday data.
+                Defaults to None.
+            **kwargs: Additional Alpha Vantage API parameters.
 
         Returns:
-            Optional[Dict[str, Any]]: Intraday data or None if request fails
+            Optional[Dict[str, Any]]: Intraday data, or None if request fails.
         """
         params = {
             "interval": interval,
@@ -919,7 +867,6 @@ class AlphaVantageDataLoader(
         if month:
             params["month"] = month
 
-        # Add any additional kwargs
         params.update(kwargs)
 
         return self._make_api_request("TIME_SERIES_INTRADAY", symbol, **params)
@@ -929,58 +876,54 @@ class AlphaVantageDataLoader(
         Fetch daily time series data from Alpha Vantage.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            outputsize: 'compact' (last 100 days) or 'full' (20+ years of data)
-            **kwargs: Additional Alpha Vantage API parameters
+            symbol (str): Stock symbol to fetch data for.
+            outputsize (str, optional): 'compact' (last 100 days) or 'full' (20+ years of data).
+                Defaults to "full".
+            **kwargs: Additional Alpha Vantage API parameters.
 
         Returns:
-            Optional[Dict[str, Any]]: Daily OHLCV data or None if request fails
+            Optional[Dict[str, Any]]: Daily OHLCV data, or None if request fails.
         """
         params = {"outputsize": outputsize}
         params.update(kwargs)
 
         return self._make_api_request("TIME_SERIES_DAILY", symbol, **params)
 
-    # Daily Adjusted Data Method #
-    # Only available if you have a premium Alpha Vantage key #
     def _get_daily_adjusted_data(self, symbol: str, outputsize: str = "full", **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Fetch daily adjusted time series data from Alpha Vantage. This
-        includes dividend and split adjustments.
+        Fetch daily adjusted time series data from Alpha Vantage.
+
+        Includes dividend and split adjustments. Requires a premium API key.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            outputsize: 'compact' (last 100 days) or 'full' (20+ years of data)
-            **kwargs: Additional Alpha Vantage API parameters
+            symbol (str): Stock symbol to fetch data for.
+            outputsize (str, optional): 'compact' (last 100 days) or 'full' (20+ years of data).
+                Defaults to "full".
+            **kwargs: Additional Alpha Vantage API parameters.
 
         Returns:
-            Optional[Dict[str, Any]]: Daily adjusted OHLCV data or None if request fails
+            Optional[Dict[str, Any]]: Daily adjusted OHLCV data, or None if request fails.
         """
         params = {"outputsize": outputsize}
         params.update(kwargs)
 
         return self._make_api_request("TIME_SERIES_DAILY_ADJUSTED", symbol, **params)
 
-    # Private Macro Data Methods #
     def _get_real_gdp_data(self, interval: str = "annual", **kwargs) -> Optional[Dict[str, Any]]:
         """
         Fetch real GDP data from Alpha Vantage.
 
         Args:
-            interval (str, optional): Defaults to "annual". Available options are
-            "quarterly" and "annual". Determines the frequency of the data.
-
+            interval (str, optional): Data frequency. Available options are "quarterly" and
+                "annual". Defaults to "annual".
             **kwargs: Additional parameters for the API request.
+
+        Returns:
+            Optional[Dict[str, Any]]: Real GDP data in dictionary format, or None if request fails.
 
         Raises:
             ValueError: If the interval is not one of the valid options.
-
-        Returns:
-            Optional[Dict[str, Any]]: Real GDP data in dictionary format or
-            None if request fails.
         """
-
-        # Validate interval parameter
         if interval not in ["quarterly", "annual"]:
             raise InvalidParametersError(f"Invalid interval '{interval}'. Use 'quarterly' or 'annual'.")
 
@@ -994,8 +937,8 @@ class AlphaVantageDataLoader(
         Fetch real GDP per capita data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Real GDP per capita data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Real GDP per capita data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("REAL_GDP_PER_CAPITA", symbol="", **kwargs)
 
@@ -1006,24 +949,21 @@ class AlphaVantageDataLoader(
         Fetch treasury yield data from Alpha Vantage.
 
         Args:
-            interval (str, optional): Defaults to "monthly".
-            maturity (str, optional): Defaults to "10year".
+            interval (str, optional): Data frequency. Defaults to "monthly".
+            maturity (str, optional): Bond maturity (e.g., "10year"). Defaults to "10year".
+            **kwargs: Additional parameters for the API request.
+
+        Returns:
+            Optional[Dict[str, Any]]: Treasury yield data in dictionary format,
+                or None if request fails.
 
         Raises:
             ValueError: If the interval or maturity parameters are invalid.
-            ValueError: If the maturity is not one of the valid options.
-
-        Returns:
-            Optional[Dict[str, Any]]: Treasury yield data in dictionary format or
-            None if request fails.
         """
-
-        # Validate interval parameter
         valid_intervals = ["daily", "weekly", "monthly"]
         if interval not in valid_intervals:
             raise InvalidParametersError(f"Invalid interval '{interval}'. Use one of: {valid_intervals}")
 
-        # Validate maturity parameter
         valid_maturities = ["3month", "2year", "5year", "7year", "10year", "30year"]
         if maturity not in valid_maturities:
             raise InvalidParametersError(f"Invalid maturity '{maturity}'. Use one of: {valid_maturities}")
@@ -1038,14 +978,15 @@ class AlphaVantageDataLoader(
         Fetch federal funds rate data from Alpha Vantage.
 
         Args:
-            interval (str, optional): Defaults to "monthly".
+            interval (str, optional): Data frequency. Defaults to "monthly".
+            **kwargs: Additional parameters for the API request.
+
+        Returns:
+            Optional[Dict[str, Any]]: Federal funds rate data in dictionary format,
+                or None if request fails.
 
         Raises:
             ValueError: If the interval is not one of the valid options.
-
-        Returns:
-            Optional[Dict[str, Any]]: Federal funds rate data in dictionary format or
-            None if request fails.
         """
         valid_intervals = ["daily", "weekly", "monthly"]
         if interval not in valid_intervals:
@@ -1061,14 +1002,14 @@ class AlphaVantageDataLoader(
         Fetch Consumer Price Index (CPI) data from Alpha Vantage.
 
         Args:
-            interval (str, optional): Defaults to "monthly".
+            interval (str, optional): Data frequency. Defaults to "monthly".
+            **kwargs: Additional parameters for the API request.
+
+        Returns:
+            Optional[Dict[str, Any]]: CPI data in dictionary format, or None if request fails.
 
         Raises:
             ValueError: If the interval is not one of the valid options.
-
-        Returns:
-            Optional[Dict[str, Any]]: CPI data in dictionary format or
-            None if request fails.
         """
         valid_intervals = ["semiannual", "monthly"]
         if interval not in valid_intervals:
@@ -1084,8 +1025,7 @@ class AlphaVantageDataLoader(
         Fetch inflation data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Inflation data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Inflation data in dictionary format, or None if request fails.
         """
         return self._make_api_request("INFLATION", symbol="", **kwargs)
 
@@ -1094,8 +1034,8 @@ class AlphaVantageDataLoader(
         Fetch retail sales data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Retail sales data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Retail sales data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("RETAIL_SALES", symbol="", **kwargs)
 
@@ -1104,8 +1044,8 @@ class AlphaVantageDataLoader(
         Fetch durable goods data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Durable goods data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Durable goods data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("DURABLE_GOODS", symbol="", **kwargs)
 
@@ -1114,8 +1054,8 @@ class AlphaVantageDataLoader(
         Fetch unemployment rate data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Unemployment rate data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Unemployment rate data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("UNEMPLOYMENT", symbol="", **kwargs)
 
@@ -1124,7 +1064,7 @@ class AlphaVantageDataLoader(
         Fetch non-farm payroll data from Alpha Vantage.
 
         Returns:
-            Optional[Dict[str, Any]]: Non-farm payroll data in dictionary format or
-            None if request fails.
+            Optional[Dict[str, Any]]: Non-farm payroll data in dictionary format,
+                or None if request fails.
         """
         return self._make_api_request("NONFARM_PAYROLL", symbol="", **kwargs)

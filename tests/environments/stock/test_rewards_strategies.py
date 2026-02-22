@@ -4,8 +4,10 @@ import pytest
 
 from quantrl_lab.environments.core.interfaces import BaseRewardStrategy, TradingEnvProtocol
 from quantrl_lab.environments.stock.strategies.rewards.composite import CompositeReward
+from quantrl_lab.environments.stock.strategies.rewards.drawdown import DrawdownPenaltyReward
 from quantrl_lab.environments.stock.strategies.rewards.expiration import OrderExpirationPenaltyReward
 from quantrl_lab.environments.stock.strategies.rewards.invalid_action import InvalidActionPenalty
+from quantrl_lab.environments.stock.strategies.rewards.sharpe import DifferentialSharpeReward
 from quantrl_lab.environments.stock.strategies.rewards.turnover import TurnoverPenaltyReward
 
 
@@ -113,3 +115,52 @@ def test_order_expiration_penalty_reward():
 
     reward = strategy.calculate_reward(env)
     assert reward == -1.0  # 2 expirations * -0.5
+
+
+def test_differential_sharpe_reward():
+    """Test DifferentialSharpeReward calculations."""
+    env = MagicMock()
+    # Use fast decay for easier manual calculation tracking
+    strategy = DifferentialSharpeReward(risk_free_rate=0.0, decay=0.5)
+
+    # Step 1: 10% Return
+    # Mean = 0.1, MeanSq = 0.01, Var = 0, Std = epsilon
+    # Reward ~ 0.1 / epsilon -> Positive large number
+    env.prev_portfolio_value = 100.0
+    env.portfolio.get_value.return_value = 110.0  # +10%
+    r1 = strategy.calculate_reward(env)
+    assert r1 > 0
+
+    # Step 2: 0% Return
+    # New Mean = 0.5(0.1) + 0.5(0.0) = 0.05
+    # New MeanSq = 0.5(0.01) + 0.5(0.0) = 0.005
+    # Var = 0.005 - 0.05^2 = 0.005 - 0.0025 = 0.0025
+    # Std = sqrt(0.0025) = 0.05
+    # Reward = 0.0 / 0.05 = 0.0
+    env.prev_portfolio_value = 110.0
+    env.portfolio.get_value.return_value = 110.0  # +0%
+    r2 = strategy.calculate_reward(env)
+    assert r2 == pytest.approx(0.0, abs=1e-5)
+
+
+def test_drawdown_penalty_reward():
+    """Test DrawdownPenaltyReward tracking and penalty."""
+    env = MagicMock()
+    strategy = DrawdownPenaltyReward(penalty_factor=1.0)
+
+    # Step 1: Value 100. Max=100. Drawdown=0. Reward=0.
+    env._get_current_price.return_value = 10.0
+    env.portfolio.get_value.return_value = 100.0
+    assert strategy.calculate_reward(env) == 0.0
+
+    # Step 2: Value 90. Max=100. Drawdown=10% (0.1). Penalty=-0.1.
+    env.portfolio.get_value.return_value = 90.0
+    assert strategy.calculate_reward(env) == pytest.approx(-0.1)
+
+    # Step 3: Value 95. Max=100. Drawdown=5% (0.05). Penalty=-0.05.
+    env.portfolio.get_value.return_value = 95.0
+    assert strategy.calculate_reward(env) == pytest.approx(-0.05)
+
+    # Step 4: Value 110. Max=110. Drawdown=0. Reward=0.
+    env.portfolio.get_value.return_value = 110.0
+    assert strategy.calculate_reward(env) == 0.0

@@ -1,19 +1,19 @@
 # Data Processing Pipeline
 
-This module implements a composable, builder-pattern data processing pipeline for financial time-series data. It is designed to transform raw OHLCV (Open-High-Low-Close-Volume) data into feature-rich datasets ready for reinforcement learning or other analysis.
+This module implements a composable, builder-pattern data processing pipeline for financial time-series data. It transforms raw OHLCV (Open-High-Low-Close-Volume) data into feature-rich datasets ready for reinforcement learning or other analysis.
 
 ## Architecture
 
 The system is built around three core concepts:
 
-1.  **DataPipeline**: A container that manages a sequence of processing steps.
+1.  **DataPipeline**: A container that manages a sequence of processing steps using a builder pattern (method chaining via `add_step()`).
 2.  **ProcessingStep**: A protocol defining a single transformation unit.
-3.  **DataProcessor**: A high-level facade that coordinates data loading, configuration, and pipeline execution.
+3.  **DataProcessor**: A high-level facade that coordinates data loading, pipeline construction, splitting, and execution.
 
 ### Components
 
 - **`pipeline.py`**: Contains `DataPipeline`, responsible for chaining steps and executing them sequentially.
-- **`processor.py`**: Contains `DataProcessor`, the main entry point for most use cases. It handles data sources, splitting (train/test), and configuration.
+- **`processor.py`**: Contains `DataProcessor`, the main entry point for most use cases. It handles data sources, splitting (train/test), and configuration. Also defines `ProcessingMetadata`.
 - **`steps/`**: Directory containing concrete implementations of processing steps.
 - **`features/`**: Logic for specific feature generation (e.g., technical indicators, sentiment) used by steps.
 
@@ -21,45 +21,56 @@ The system is built around three core concepts:
 
 ### High-Level API (Recommended)
 
-The `DataProcessor` class provides a unified interface for standard workflows:
+The `DataProcessor` class builds a `DataPipeline` internally based on the arguments you pass:
 
 ```python
 from quantrl_lab.data.processing.processor import DataProcessor
 
-# Initialize with raw data
-processor = DataProcessor(ohlcv_data=df, news_data=news_df)
+processor = DataProcessor(
+    ohlcv_data=df,
+    news_data=news_df,           # optional
+    analyst_grades=grades_df,    # optional
+    analyst_ratings=ratings_df,  # optional
+    sector_performance=sector_df,  # optional
+    industry_performance=industry_df,  # optional
+)
 
-# Run standard pipeline
 processed_data, metadata = processor.data_processing_pipeline(
     indicators=["SMA", "RSI"],
-    split_config={'train': 0.7, 'test': 0.3}
+    fillna_strategy="neutral",
+    split_config={"train": 0.7, "test": 0.3},
 )
 ```
 
+Steps are added conditionally — sentiment enrichment only runs if `news_data` is provided, analyst estimates only if `analyst_grades`/`analyst_ratings` are provided, etc.
+
 ### Low-Level Builder API (Custom Workflows)
 
-For more control, you can construct a `DataPipeline` manually:
+For full control, construct a `DataPipeline` manually and chain steps using the builder pattern:
 
 ```python
 from quantrl_lab.data.processing.pipeline import DataPipeline
 from quantrl_lab.data.processing.steps import (
     TechnicalIndicatorStep,
-    ColumnCleanupStep
+    NumericConversionStep,
+    ColumnCleanupStep,
 )
 
-# Build pipeline
-pipeline = (DataPipeline()
+pipeline = (
+    DataPipeline()
     .add_step(TechnicalIndicatorStep(indicators=["SMA", {"RSI": {"window": 14}}]))
+    .add_step(NumericConversionStep())
     .add_step(ColumnCleanupStep(columns_to_drop=["Date"]))
 )
 
-# Execute
 result_df, metadata = pipeline.execute(raw_df)
 ```
 
+Each `add_step()` call returns the pipeline itself, so calls can be chained fluently. Steps execute in the order they were added.
+
 ### Integration with DataSourceRegistry
 
-You can easily integrate with the `DataSourceRegistry` to fetch data from configured sources (Alpaca, YFinance, etc.) and pass it to the processor:
+Fetch data from configured sources (Alpaca, YFinance, etc.) and feed it into the processor:
 
 ```python
 from quantrl_lab.data.source_registry import DataSourceRegistry
@@ -68,52 +79,100 @@ from quantrl_lab.data.processing.processor import DataProcessor
 # 1. Get data from registry
 registry = DataSourceRegistry()
 
-# Fetch OHLCV data (Primary Source)
 ohlcv_df = registry.get_historical_ohlcv_data(
     symbols="AAPL",
     start="2023-01-01",
     end="2023-12-31",
-    timeframe="1d"
+    timeframe="1d",
 )
 
-# Fetch News data (Optional)
 news_df = registry.get_news_data(
     symbols="AAPL",
     start="2023-01-01",
-    end="2023-12-31"
+    end="2023-12-31",
 )
 
 # 2. Initialize Processor
-processor = DataProcessor(
-    ohlcv_data=ohlcv_df,
-    news_data=news_df
-)
+processor = DataProcessor(ohlcv_data=ohlcv_df, news_data=news_df)
 
 # 3. Run Pipeline
 processed_data, metadata = processor.data_processing_pipeline(
     indicators=["SMA", "RSI"],
-    split_config={'train': 0.7, 'test': 0.3}
+    split_config={"train": 0.7, "test": 0.3},
 )
 ```
 
 ## Available Steps
 
 | Step Class | Description |
-|------------|-------------|
-| `TechnicalIndicatorStep` | Adds technical indicators (SMA, RSI, MACD, etc.) using `TechnicalFeatureGenerator`. |
-| `SentimentEnrichmentStep` | Merges news data and computes sentiment scores. |
-| `NumericConversionStep` | Converts specified columns to numeric types, handling errors. |
+|---|---|
+| `TechnicalIndicatorStep` | Adds technical indicators (SMA, RSI, MACD, etc.) via `TechnicalFeatureGenerator`. |
+| `AnalystEstimatesStep` | Merges analyst grade and rating data into the DataFrame. |
+| `MarketContextStep` | Adds sector and industry relative performance features. |
+| `SentimentEnrichmentStep` | Merges news data and computes sentiment scores via a configurable provider. |
+| `NumericConversionStep` | Converts specified (or all object-type) columns to numeric, skipping date columns. |
 | `ColumnCleanupStep` | Drops unwanted columns (e.g., raw dates, symbols) to prepare for model input. |
+
+### Using Alpha Research to Choose Indicators (Recommended)
+
+The `alpha_research` module can suggest the best indicators for your data. The recommended
+pattern is to run `AlphaSelector` **outside** the pipeline so you can inspect, filter, or
+augment the suggestions before they enter the processing pipeline:
+
+```python
+from quantrl_lab.alpha_research import AlphaSelector
+from quantrl_lab.data.processing.pipeline import DataPipeline
+from quantrl_lab.data.processing.steps import (
+    TechnicalIndicatorStep,
+    NumericConversionStep,
+    ColumnCleanupStep,
+)
+
+# 1. Ask alpha research for suggestions (outside the pipeline)
+selector = AlphaSelector(raw_df, verbose=True)
+suggested = selector.suggest_indicators(metric="sharpe_ratio", top_k=5)
+# Returns e.g.: [{"RSI": {"window": 14}}, {"SMA": {"window": 50}}]
+
+# 2. User decision — inspect, filter, or mix with manual picks
+indicators = suggested + [{"MACD": {"fast": 12, "slow": 26, "signal": 9}}]
+
+# 3. Build pipeline with the chosen indicators
+pipeline = (
+    DataPipeline()
+    .add_step(TechnicalIndicatorStep(indicators=indicators))
+    .add_step(NumericConversionStep())
+    .add_step(ColumnCleanupStep())
+)
+
+result_df, metadata = pipeline.execute(raw_df)
+```
+
+**Why decoupled?** The decoupled pattern gives you full control: skip indicators you don't trust,
+add domain-specific ones, or skip alpha research entirely and just pass `["SMA", "RSI"]` directly.
+
+### Default Pipeline Order (inside `DataProcessor`)
+
+When using the high-level API, steps are added in this order:
+
+1. `TechnicalIndicatorStep` — always added (no-ops if no indicators provided)
+2. `AnalystEstimatesStep` — only if analyst data is provided
+3. `MarketContextStep` — only if sector/industry data is provided
+4. `SentimentEnrichmentStep` — only if `news_data` is provided
+5. `NumericConversionStep` — always added
+6. `ColumnCleanupStep` — always added
+
+After pipeline execution, NaN rows are dropped (indicator warm-up periods), and data is optionally split.
 
 ## Metadata Tracking
 
-The pipeline automatically tracks metadata through `ProcessingMetadata`, which records:
+The pipeline tracks metadata through `ProcessingMetadata`, which records:
 - Original and final data shapes
 - Applied technical indicators
 - Dropped columns
 - Date ranges for splits
+- Flags for analyst data, market context, and sentiment enrichment
 
-This ensures reproducibility and allows the environment to know how the data was transformed.
+This ensures reproducibility and allows downstream components to know how the data was transformed.
 
 ## Extending the Pipeline
 
@@ -125,7 +184,6 @@ import pandas as pd
 
 class MyCustomStep:
     def process(self, data: pd.DataFrame, metadata: ProcessingMetadata) -> pd.DataFrame:
-        # Perform transformation
         data["new_col"] = data["close"] * 2
         return data
 
@@ -133,7 +191,15 @@ class MyCustomStep:
         return "My Custom Step"
 ```
 
-Then add it to your pipeline:
+Then add it to a pipeline:
+
 ```python
-pipeline.add_step(MyCustomStep())
+pipeline = (
+    DataPipeline()
+    .add_step(TechnicalIndicatorStep(indicators=["SMA"]))
+    .add_step(MyCustomStep())
+    .add_step(ColumnCleanupStep())
+)
+
+result_df, metadata = pipeline.execute(raw_df)
 ```

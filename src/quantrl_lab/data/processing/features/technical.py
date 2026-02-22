@@ -38,9 +38,56 @@ class TechnicalFeatureGenerator:
         self.indicators = indicators
         self.registry = IndicatorRegistry
 
+    def _generate_single(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """Internal method to generate indicators for a single asset."""
+        result = data.copy()
+        available_indicators = set(self.registry.list_all())
+
+        for indicator_config in self.indicators:
+            # Handle both string and dictionary formats
+            if isinstance(indicator_config, str):
+                indicator_name = indicator_config
+                custom_params = kwargs.get(f"{indicator_name}_params", {})
+            elif isinstance(indicator_config, dict):
+                if len(indicator_config) != 1:
+                    continue
+                indicator_name = list(indicator_config.keys())[0]
+                custom_params = indicator_config[indicator_name]
+            else:
+                continue
+
+            if indicator_name not in available_indicators:
+                continue
+
+            try:
+                if isinstance(custom_params, list):
+                    for param_set in custom_params:
+                        if isinstance(param_set, dict):
+                            result = self.registry.apply(indicator_name, result, **param_set)
+                elif isinstance(custom_params, dict) and any(isinstance(v, list) for v in custom_params.values()):
+                    import itertools
+
+                    param_names = list(custom_params.keys())
+                    param_values = list(custom_params.values())
+                    param_values = [v if isinstance(v, list) else [v] for v in param_values]
+
+                    for combination in itertools.product(*param_values):
+                        params_dict = dict(zip(param_names, combination))
+                        result = self.registry.apply(indicator_name, result, **params_dict)
+                elif isinstance(custom_params, dict):
+                    result = self.registry.apply(indicator_name, result, **custom_params)
+                else:
+                    result = self.registry.apply(indicator_name, result)
+            except Exception:
+                continue
+
+        return result
+
     def generate(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
-        Generate DataFrame with technical indicators.
+        Generate DataFrame with technical indicators. Automatically
+        handles panel data by grouping by Symbol to prevent time-series
+        crossover between different assets.
 
         Args:
             data (pd.DataFrame): Input OHLCV DataFrame.
@@ -67,59 +114,17 @@ class TechnicalFeatureGenerator:
         if missing_cols:
             raise ValueError(f"Missing required columns in DataFrame: {', '.join(missing_cols)}")
 
-        result = data.copy()
-        available_indicators = set(self.registry.list_all())
-
-        for indicator_config in self.indicators:
-            # Handle both string and dictionary formats
-            if isinstance(indicator_config, str):
-                # Simple string format: just the indicator name
-                indicator_name = indicator_config
-                custom_params = kwargs.get(f"{indicator_name}_params", {})
-            elif isinstance(indicator_config, dict):
-                # Dictionary format: {"IndicatorName": {"param1": value1, "param2": value2}}
-                if len(indicator_config) != 1:
-                    continue  # Skip invalid configs
-                indicator_name = list(indicator_config.keys())[0]
-                custom_params = indicator_config[indicator_name]
-            else:
-                continue  # Skip invalid types
-
-            # Check if indicator exists in registry
-            if indicator_name not in available_indicators:
-                continue  # Skip unknown indicators
-
-            try:
-                # Handle different parameter formats
-                if isinstance(custom_params, list):
-                    # List of parameter dictionaries
-                    for param_set in custom_params:
-                        if isinstance(param_set, dict):
-                            result = self.registry.apply(indicator_name, result, **param_set)
-                elif isinstance(custom_params, dict) and any(isinstance(v, list) for v in custom_params.values()):
-                    # Multiple parameter combinations (e.g., {"window": [10, 20, 50]})
-                    import itertools
-
-                    param_names = list(custom_params.keys())
-                    param_values = list(custom_params.values())
-                    param_values = [v if isinstance(v, list) else [v] for v in param_values]
-
-                    # Generate all combinations
-                    for combination in itertools.product(*param_values):
-                        params_dict = dict(zip(param_names, combination))
-                        result = self.registry.apply(indicator_name, result, **params_dict)
-                elif isinstance(custom_params, dict):
-                    # Single parameter dictionary
-                    result = self.registry.apply(indicator_name, result, **custom_params)
-                else:
-                    # Empty parameters or invalid format
-                    result = self.registry.apply(indicator_name, result)
-
-            except Exception:
-                # Silently continue on errors (consistent with original behavior)
-                continue
-
-        return result
+        # If panel data (multiple symbols), group by Symbol before calculating
+        # rolling indicators to prevent data bleeding across assets.
+        if "Symbol" in data.columns and len(data["Symbol"].unique()) > 1:
+            # apply() on groupby might alter the index or order depending on pandas version.
+            # We sort the final result to maintain chronological index order.
+            result = data.groupby("Symbol", group_keys=False).apply(
+                lambda df_group: self._generate_single(df_group, **kwargs)
+            )
+            return result.sort_index()
+        else:
+            return self._generate_single(data, **kwargs)
 
     def get_metadata(self) -> Dict:
         """

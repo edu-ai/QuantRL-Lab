@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from quantrl_lab.data.processing.processor import ProcessingMetadata
-from quantrl_lab.data.processing.steps.analyst import AnalystEstimatesStep
+from quantrl_lab.data.processing.steps.alternative.analyst import AnalystEstimatesStep
 
 
 class TestAnalystEstimatesStep:

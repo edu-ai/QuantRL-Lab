@@ -1,3 +1,4 @@
+from .async_request_utils import AsyncHTTPRequestWrapper
 from .dataframe_normalization import (
     add_date_column_from_timestamp,
     add_symbol_column,
@@ -40,6 +41,7 @@ __all__ = [
     "convert_columns_to_numeric",
     "standardize_ohlcv_dataframe",
     # Request utilities
+    "AsyncHTTPRequestWrapper",
     "HTTPRequestWrapper",
     "RetryStrategy",
     "create_default_wrapper",

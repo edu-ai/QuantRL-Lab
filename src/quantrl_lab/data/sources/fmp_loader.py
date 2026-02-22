@@ -1,6 +1,9 @@
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    import aiohttp
 
 import pandas as pd
 from loguru import logger
@@ -14,6 +17,7 @@ from quantrl_lab.data.interface import (
     SectorDataCapable,
 )
 from quantrl_lab.data.utils import (
+    AsyncHTTPRequestWrapper,
     HTTPRequestWrapper,
     RetryStrategy,
     convert_to_dataframe_safe,
@@ -65,7 +69,6 @@ class FMPDataSource(
         if not self.api_key:
             raise AuthenticationError("FMP API key must be provided or set in FMP_API_KEY environment variable")
 
-        # Initialize HTTP request wrapper with retry logic
         self._request_wrapper = HTTPRequestWrapper(
             max_retries=3,
             retry_strategy=RetryStrategy.EXPONENTIAL,
@@ -83,14 +86,14 @@ class FMPDataSource(
         Make an HTTP request to the FMP API with retry logic.
 
         Args:
-            endpoint (str): API endpoint path
-            params (Dict[str, Any]): Query parameters
+            endpoint (str): API endpoint path.
+            params (Dict[str, Any]): Query parameters.
 
         Returns:
-            Any: JSON response data
+            Any: JSON response data.
 
         Raises:
-            requests.HTTPError: If the request fails after retries
+            requests.HTTPError: If the request fails after retries.
         """
         params['apikey'] = self.api_key
         url = f"{self.BASE_URL}/{endpoint}"
@@ -114,16 +117,15 @@ class FMPDataSource(
         Get intraday OHLCV data from FMP historical-chart endpoint.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            start: Start date for historical data
-            end: End date for historical data
-            timeframe: Intraday timeframe (5min, 15min, 30min, 1hour, 4hour)
-            nonadjusted: If true, returns unadjusted prices (default: False)
+            symbol (str): Stock symbol to fetch data for.
+            start (Union[str, datetime]): Start date for historical data.
+            end (Union[str, datetime], optional): End date for historical data.
+            timeframe (str): Intraday timeframe (5min, 15min, 30min, 1hour, 4hour).
+            nonadjusted (bool, optional): If True, returns unadjusted prices. Defaults to False.
 
         Returns:
-            pd.DataFrame: Intraday OHLCV data with standardized column names
+            pd.DataFrame: Intraday OHLCV data with standardized column names.
         """
-        # Normalize dates using utility
         start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
         start_str = format_date_to_string(start_dt)
         end_str = format_date_to_string(end_dt)
@@ -136,7 +138,6 @@ class FMPDataSource(
             end=end_str,
         )
 
-        # Build endpoint: historical-chart/{timeframe}
         endpoint = f"historical-chart/{timeframe}"
         params = {
             "symbol": symbol,
@@ -145,15 +146,12 @@ class FMPDataSource(
             "nonadjusted": str(nonadjusted).lower(),
         }
 
-        # Make API request
         data = self._make_request(endpoint, params)
 
-        # Safely convert to DataFrame
         df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=symbol)
         if df.empty:
             return df
 
-        # Standardize using utility function
         column_mapping = {
             'date': 'Timestamp',
             'open': 'Open',
@@ -188,34 +186,32 @@ class FMPDataSource(
         Get historical OHLCV data from FMP (daily or intraday).
 
         Args:
-            symbols: Stock symbol(s) to fetch data for
-            start: Start date for historical data
-            end: End date for historical data
-            timeframe: Timeframe - "1d" for daily, or intraday: "5min", "15min", "30min", "1hour", "4hour"
-            **kwargs: Additional arguments including 'nonadjusted' (bool) for intraday data
+            symbols (Union[str, List[str]]): Stock symbol(s) to fetch data for.
+            start (Union[str, datetime], optional): Start date for historical data.
+            end (Union[str, datetime], optional): End date for historical data.
+            timeframe (str, optional): Timeframe - "1d" for daily, or intraday:
+                "5min", "15min", "30min", "1hour", "4hour". Defaults to "1d".
+            **kwargs: Additional arguments including 'nonadjusted' (bool) for intraday data.
 
         Returns:
-            pd.DataFrame: OHLCV data with standardized column names
+            pd.DataFrame: OHLCV data with standardized column names.
 
         Raises:
-            ValueError: If timeframe is not supported
+            ValueError: If timeframe is not supported.
         """
         if start is None:
             raise InvalidParametersError("FMP requires a 'start' date for historical data.")
 
-        # FMP only supports single symbols - extract first symbol
+        # FMP only supports single symbols
         symbol = get_single_symbol(symbols, warn_on_multiple=True)
 
-        # Check if intraday timeframe
         if timeframe in self.INTRADAY_TIMEFRAMES:
             nonadjusted = kwargs.get("nonadjusted", False)
             return self._get_intraday_data(symbol, start, end, timeframe, nonadjusted)
 
-        # Otherwise use daily EOD endpoint
         if timeframe != "1d":
             logger.warning(f"Timeframe {timeframe} not supported by FMP. Using daily (1d) data.")
 
-        # Normalize dates using utility
         start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
         start_str = format_date_to_string(start_dt)
         end_str = format_date_to_string(end_dt)
@@ -227,7 +223,6 @@ class FMPDataSource(
             end=end_str,
         )
 
-        # Build endpoint with query parameters: symbol, from, to
         endpoint = "historical-price-eod/full"
         params = {
             "symbol": symbol,
@@ -235,15 +230,12 @@ class FMPDataSource(
             "to": end_str,
         }
 
-        # Make API request
         data = self._make_request(endpoint, params)
 
-        # Safely convert to DataFrame
         df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=symbol)
         if df.empty:
             return df
 
-        # Standardize using utility function
         column_mapping = {
             'date': 'Timestamp',
             'open': 'Open',
@@ -271,10 +263,10 @@ class FMPDataSource(
         Get historical analyst grades for a symbol.
 
         Args:
-            symbol: Stock symbol to fetch data for
+            symbol (str): Stock symbol to fetch data for.
 
         Returns:
-            pd.DataFrame: Historical grades data
+            pd.DataFrame: Historical grades data.
         """
         endpoint = "grades-historical"
         params = {"symbol": symbol}
@@ -291,7 +283,6 @@ class FMPDataSource(
             logger.warning(f"Empty grades dataset returned for symbol: {symbol}")
             return pd.DataFrame()
 
-        # Convert date column
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
             df.sort_values('date', inplace=True)
@@ -309,11 +300,11 @@ class FMPDataSource(
         Get historical ratings for a symbol.
 
         Args:
-            symbol: Stock symbol to fetch data for
-            limit: Number of records to return (default: 100)
+            symbol (str): Stock symbol to fetch data for.
+            limit (int, optional): Number of records to return. Defaults to 100.
 
         Returns:
-            pd.DataFrame: Historical ratings data
+            pd.DataFrame: Historical ratings data.
         """
         endpoint = "ratings-historical"
         params = {"symbol": symbol, "limit": limit}
@@ -330,7 +321,6 @@ class FMPDataSource(
             logger.warning(f"Empty ratings dataset returned for symbol: {symbol}")
             return pd.DataFrame()
 
-        # Convert date column
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
             df.sort_values('date', inplace=True)
@@ -351,20 +341,18 @@ class FMPDataSource(
         allowing analysis of sector trends and performance over time.
 
         Args:
-            sector: Market sector name (e.g., "Energy", "Technology", "Healthcare",
+            sector (str): Market sector name (e.g., "Energy", "Technology", "Healthcare",
                 "Financials", "Consumer Cyclical", "Industrials", "Basic Materials",
-                "Consumer Defensive", "Real Estate", "Utilities", "Communication Services")
-            start: Start date in 'YYYY-MM-DD' format (optional, defaults to API default)
-            end: End date in 'YYYY-MM-DD' format (optional, defaults to API default)
+                "Consumer Defensive", "Real Estate", "Utilities", "Communication Services").
+            start (str, optional): Start date in 'YYYY-MM-DD' format. Defaults to API default.
+            end (str, optional): End date in 'YYYY-MM-DD' format. Defaults to API default.
 
         Returns:
-            pd.DataFrame: Historical sector performance data with columns including:
-                - date: Performance date
-                - sector: Sector name
-                - performance metrics (varies by API response)
+            pd.DataFrame: Historical sector performance data with columns including date,
+                sector, and performance metrics.
 
         Raises:
-            ValueError: If sector is invalid or API request fails
+            ValueError: If sector is invalid or API request fails.
 
         Example:
             >>> source = FMPDataSource()
@@ -379,28 +367,23 @@ class FMPDataSource(
         endpoint = "historical-sector-performance"
         params = {"sector": sector}
 
-        # Add date range if provided
         if start:
             params["from"] = start
         if end:
             params["to"] = end
 
-        # Make API request
         data = self._make_request(endpoint, params)
 
-        # Validate response
         if not data or not isinstance(data, list):
             logger.warning(f"No historical sector performance data found for sector: {sector}")
             return pd.DataFrame()
 
-        # Convert to DataFrame
         df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=sector)
 
         if df.empty:
             logger.warning(f"Empty sector performance dataset returned for sector: {sector}")
             return pd.DataFrame()
 
-        # Convert date column if present
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
             df.sort_values('date', inplace=True)
@@ -423,20 +406,18 @@ class FMPDataSource(
         enabling long-term trend analysis and industry evolution tracking.
 
         Args:
-            industry: Industry name (e.g., "Biotechnology", "Software", "Banks",
+            industry (str): Industry name (e.g., "Biotechnology", "Software", "Banks",
                 "Oil & Gas", "Semiconductors", "Insurance", "Auto Manufacturers",
-                "Pharmaceuticals", "Consumer Electronics", "Aerospace & Defense")
-            start: Start date in 'YYYY-MM-DD' format (optional, defaults to API default)
-            end: End date in 'YYYY-MM-DD' format (optional, defaults to API default)
+                "Pharmaceuticals", "Consumer Electronics", "Aerospace & Defense").
+            start (str, optional): Start date in 'YYYY-MM-DD' format. Defaults to API default.
+            end (str, optional): End date in 'YYYY-MM-DD' format. Defaults to API default.
 
         Returns:
-            pd.DataFrame: Historical industry performance data with columns including:
-                - date: Performance date
-                - industry: Industry name
-                - performance metrics (varies by API response)
+            pd.DataFrame: Historical industry performance data with columns including date,
+                industry, and performance metrics.
 
         Raises:
-            ValueError: If industry is invalid or API request fails
+            ValueError: If industry is invalid or API request fails.
 
         Example:
             >>> source = FMPDataSource()
@@ -451,28 +432,23 @@ class FMPDataSource(
         endpoint = "historical-industry-performance"
         params = {"industry": industry}
 
-        # Add date range if provided
         if start:
             params["from"] = start
         if end:
             params["to"] = end
 
-        # Make API request
         data = self._make_request(endpoint, params)
 
-        # Validate response
         if not data or not isinstance(data, list):
             logger.warning(f"No historical industry performance data found for industry: {industry}")
             return pd.DataFrame()
 
-        # Convert to DataFrame
         df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=industry)
 
         if df.empty:
             logger.warning(f"Empty industry performance dataset returned for industry: {industry}")
             return pd.DataFrame()
 
-        # Convert date column if present
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
             df.sort_values('date', inplace=True)
@@ -497,34 +473,16 @@ class FMPDataSource(
         key financial metrics.
 
         Args:
-            symbol: Stock ticker symbol (e.g., "AAPL", "MSFT") or list of symbols
-                (only first symbol will be used if list is provided)
+            symbol (Union[str, List[str]]): Stock ticker symbol (e.g., "AAPL", "MSFT") or
+                list of symbols (only first symbol will be used if list is provided).
 
         Returns:
-            pd.DataFrame: Company profile data with columns including:
-                - symbol: Stock ticker
-                - companyName: Full company name
-                - sector: Sector classification (e.g., "Technology")
-                - industry: Industry classification (e.g., "Consumer Electronics")
-                - description: Business description
-                - ceo: Chief Executive Officer name
-                - website: Company website URL
-                - exchange: Stock exchange
-                - exchangeShortName: Exchange abbreviation
-                - mktCap: Market capitalization
-                - price: Current stock price
-                - beta: Stock beta
-                - volAvg: Average volume
-                - currency: Trading currency
-                - ipoDate: Initial public offering date
-                - address, city, state, zip, country: Headquarters location
-                - phone: Contact phone number
-                - fullTimeEmployees: Number of employees
-                - image: Company logo URL
-                - isEtf, isActivelyTrading, isFund, isAdr: Asset type flags
+            pd.DataFrame: Company profile data with columns including symbol, companyName,
+                sector, industry, description, ceo, website, exchange, mktCap, price, beta,
+                volAvg, currency, ipoDate, address, fullTimeEmployees, and asset type flags.
 
         Raises:
-            ValueError: If symbol is invalid or API request fails
+            ValueError: If symbol is invalid or API request fails.
 
         Example:
             >>> source = FMPDataSource()
@@ -539,7 +497,6 @@ class FMPDataSource(
             - Retrieve company metadata for analysis
             - Build company information datasets
         """
-        # Normalize and validate symbol
         symbols = normalize_symbols(symbol)
         validate_symbols(symbols)
         symbol = get_single_symbol(symbols)
@@ -552,22 +509,18 @@ class FMPDataSource(
         endpoint = "profile"
         params = {"symbol": symbol}
 
-        # Make API request
         data = self._make_request(endpoint, params)
 
-        # Validate response
         if not data or not isinstance(data, list):
             logger.warning(f"No company profile data found for symbol: {symbol}")
             return pd.DataFrame()
 
-        # Convert to DataFrame
         df = convert_to_dataframe_safe(data, expected_min_rows=0, symbol=symbol)
 
         if df.empty:
             logger.warning(f"Empty company profile dataset returned for symbol: {symbol}")
             return pd.DataFrame()
 
-        # Log the company info
         if not df.empty:
             company_name = df.iloc[0].get('companyName', 'Unknown')
             sector = df.iloc[0].get('sector', 'N/A')
@@ -582,3 +535,189 @@ class FMPDataSource(
             )
 
         return df
+
+    def _get_async_wrapper(self) -> AsyncHTTPRequestWrapper:
+        """Return a shared async wrapper configured for FMP rate
+        limits."""
+        return AsyncHTTPRequestWrapper(
+            max_retries=3,
+            base_delay=1.0,
+            concurrency=5,  # Conservative for FMP free tier
+            timeout=30.0,
+        )
+
+    async def _async_request(
+        self,
+        session: "aiohttp.ClientSession",
+        endpoint: str,
+        params: Dict[str, Any],
+        wrapper: AsyncHTTPRequestWrapper,
+    ) -> Any:
+        """
+        Async equivalent of _make_request().
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            endpoint (str): API endpoint path.
+            params (Dict[str, Any]): Query parameters (apikey is added automatically).
+            wrapper (AsyncHTTPRequestWrapper): Configured async request wrapper.
+
+        Returns:
+            Any: JSON response data.
+        """
+        params = {**params, "apikey": self.api_key}
+        url = f"{self.BASE_URL}/{endpoint}"
+        return await wrapper.make_request(session, url, params=params)
+
+    async def async_fetch_ohlcv(
+        self,
+        session: "aiohttp.ClientSession",
+        symbol: str,
+        start: Union[str, datetime],
+        end: Optional[Union[str, datetime]] = None,
+        timeframe: str = "1d",
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async fetch of EOD OHLCV data for a single symbol.
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            symbol (str): Stock symbol to fetch.
+            start (Union[str, datetime]): Start date for historical data.
+            end (Union[str, datetime], optional): End date for historical data.
+            timeframe (str, optional): Timeframe string. Defaults to "1d".
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (symbol, df).
+        """
+        wrapper = self._get_async_wrapper()
+        start_dt, end_dt = normalize_date_range(start, end, default_end_to_now=True)
+        params = {
+            "symbol": symbol,
+            "from": format_date_to_string(start_dt),
+            "to": format_date_to_string(end_dt),
+        }
+        data = await self._async_request(session, "historical-price-eod/full", params, wrapper)
+        df = convert_to_dataframe_safe(data or [], symbol=symbol)
+        if not df.empty:
+            column_mapping = {
+                "date": "Timestamp",
+                "open": "Open",
+                "high": "High",
+                "low": "Low",
+                "close": "Close",
+                "volume": "Volume",
+            }
+            df = standardize_ohlcv_dataframe(
+                df,
+                column_mapping=column_mapping,
+                symbol=symbol,
+                timestamp_col="Timestamp",
+                add_date=True,
+                sort_data=True,
+                convert_numeric=True,
+            )
+        return symbol, df
+
+    async def async_fetch_ratings(
+        self,
+        session: "aiohttp.ClientSession",
+        symbol: str,
+        limit: int = 500,
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async fetch of historical analyst ratings.
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            symbol (str): Stock symbol to fetch.
+            limit (int, optional): Maximum number of records to return. Defaults to 500.
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (symbol, df).
+        """
+        wrapper = self._get_async_wrapper()
+        data = await self._async_request(session, "ratings-historical", {"symbol": symbol, "limit": limit}, wrapper)
+        if not data or not isinstance(data, list):
+            return symbol, pd.DataFrame()
+        df = pd.DataFrame(data)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
+        return symbol, df
+
+    async def async_fetch_company_profile(
+        self,
+        session: "aiohttp.ClientSession",
+        symbol: str,
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async fetch of company profile (sector, industry).
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            symbol (str): Stock symbol to fetch.
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (symbol, df).
+        """
+        wrapper = self._get_async_wrapper()
+        data = await self._async_request(session, "profile", {"symbol": symbol}, wrapper)
+        df = convert_to_dataframe_safe(data or [], symbol=symbol)
+        return symbol, df
+
+    async def async_fetch_sector_perf(
+        self,
+        session: "aiohttp.ClientSession",
+        sector: str,
+        start: str,
+        end: str,
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async fetch of historical sector performance.
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            sector (str): Market sector name.
+            start (str): Start date in 'YYYY-MM-DD' format.
+            end (str): End date in 'YYYY-MM-DD' format.
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (sector, df).
+        """
+        wrapper = self._get_async_wrapper()
+        params = {"sector": sector, "from": start, "to": end}
+        data = await self._async_request(session, "historical-sector-performance", params, wrapper)
+        df = convert_to_dataframe_safe(data or [], symbol=sector)
+        if not df.empty and "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
+        return sector, df
+
+    async def async_fetch_industry_perf(
+        self,
+        session: "aiohttp.ClientSession",
+        industry: str,
+        start: str,
+        end: str,
+    ) -> Tuple[str, pd.DataFrame]:
+        """
+        Async fetch of historical industry performance.
+
+        Args:
+            session (aiohttp.ClientSession): Shared aiohttp session.
+            industry (str): Industry name.
+            start (str): Start date in 'YYYY-MM-DD' format.
+            end (str): End date in 'YYYY-MM-DD' format.
+
+        Returns:
+            Tuple[str, pd.DataFrame]: Tuple of (industry, df).
+        """
+        wrapper = self._get_async_wrapper()
+        params = {"industry": industry, "from": start, "to": end}
+        data = await self._async_request(session, "historical-industry-performance", params, wrapper)
+        df = convert_to_dataframe_safe(data or [], symbol=industry)
+        if not df.empty and "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
+        return industry, df

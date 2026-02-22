@@ -61,9 +61,11 @@ class ProcessingMetadata:
     date_ranges: Dict[str, Dict[str, str]] = field(default_factory=dict)
     fillna_strategy: str = "neutral"
     technical_indicators: List[Union[str, Dict]] = field(default_factory=list)
+    cross_sectional_features: List[str] = field(default_factory=list)
     news_sentiment_applied: bool = False
     analyst_data_applied: bool = False
     market_context_applied: bool = False
+    alpha_selection_config: Optional[Dict] = None
     columns_dropped: List[str] = field(default_factory=list)
     original_shape: Tuple[int, int] = (0, 0)
     final_shapes: Dict[str, Tuple[int, int]] = field(default_factory=dict)
@@ -87,9 +89,11 @@ class ProcessingMetadata:
             "date_ranges": self.date_ranges,
             "fillna_strategy": self.fillna_strategy,
             "technical_indicators": self.technical_indicators,
+            "cross_sectional_features": self.cross_sectional_features,
             "news_sentiment_applied": self.news_sentiment_applied,
             "analyst_data_applied": self.analyst_data_applied,
             "market_context_applied": self.market_context_applied,
+            "alpha_selection_config": self.alpha_selection_config,
             "columns_dropped": self.columns_dropped,
             "original_shape": self.original_shape,
             "final_shapes": self.final_shapes,
@@ -294,6 +298,7 @@ class DataProcessor:
     def data_processing_pipeline(
         self,
         indicators: Optional[List[Union[str, Dict]]] = None,
+        alpha_selection_config: Optional[Dict[str, Any]] = None,
         fillna_strategy: str = "neutral",
         split_config: Optional[Dict] = None,
         **kwargs: Any,
@@ -311,6 +316,10 @@ class DataProcessor:
                 - String format: ["SMA", "RSI"]
                 - Dict format: [{"SMA": {"window": 20}}, {"RSI": {"window": 14}}]
                 Defaults to None (no indicators).
+            alpha_selection_config (Optional[Dict], optional):
+                Configuration for dynamic alpha selection. If provided, the pipeline
+                will automatically select and apply the best indicators.
+                Keys: "metric" (default "ic"), "threshold", "top_k", "candidates".
             fillna_strategy (str, optional): Strategy for handling missing sentiment scores.
                 Options: "neutral" (fill with 0.0) or "fill_forward" (forward fill).
                 Defaults to "neutral".
@@ -336,13 +345,12 @@ class DataProcessor:
             NumericConversionStep,
             SentimentEnrichmentStep,
             TechnicalIndicatorStep,
-            TimeFeatureStep,
         )
 
         # Build pipeline
         pipeline = DataPipeline()
 
-        # 1. Technical Indicators
+        # 1. Technical Indicators (Manual)
         pipeline.add_step(TechnicalIndicatorStep(indicators=indicators))
 
         # 2. Analyst Estimates
@@ -371,11 +379,7 @@ class DataProcessor:
         columns_to_convert = kwargs.get("columns_to_convert", None)
         pipeline.add_step(NumericConversionStep(columns=columns_to_convert))
 
-        # 6. Time Features
-        # Add cyclical time features (sin/cos) before cleanup drops the date column
-        pipeline.add_step(TimeFeatureStep())
-
-        # 7. Column Cleanup
+        # 6. Column Cleanup
         # If columns_to_drop is passed, use it; otherwise rely on defaults in step
         # Note: We keep date columns if splitting is required later
         columns_to_drop = kwargs.get("columns_to_drop", None)

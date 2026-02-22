@@ -15,18 +15,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from quantrl_lab.experiments.alpha_research.base import SignalType
-from quantrl_lab.experiments.alpha_research.core import AlphaJob, AlphaResult
-from quantrl_lab.experiments.alpha_research.ensemble import AlphaEnsemble
-from quantrl_lab.experiments.alpha_research.registry import VectorizedStrategyRegistry
-from quantrl_lab.experiments.alpha_research.robustness import RobustnessTester
-from quantrl_lab.experiments.alpha_research.runner import AlphaRunner
-from quantrl_lab.experiments.alpha_research.strategies import (
+from quantrl_lab.alpha_research.alpha_strategies import (
     MACDCrossoverStrategy,
     MeanReversionStrategy,
     TrendFollowingStrategy,
 )
-from quantrl_lab.experiments.alpha_research.visualization import AlphaVisualizer
+from quantrl_lab.alpha_research.analysis import RobustnessTester
+from quantrl_lab.alpha_research.base import SignalType
+from quantrl_lab.alpha_research.ensemble import AlphaEnsemble
+from quantrl_lab.alpha_research.models import AlphaJob, AlphaResult
+from quantrl_lab.alpha_research.registry import VectorizedStrategyRegistry
+from quantrl_lab.alpha_research.runner import AlphaRunner
+from quantrl_lab.alpha_research.visualization import AlphaVisualizer
 
 # ============================================================================
 # Fixtures
