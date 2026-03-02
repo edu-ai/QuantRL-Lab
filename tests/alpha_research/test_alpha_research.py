@@ -238,17 +238,21 @@ class TestAlphaResult:
         assert result.error is None
 
     def test_alpha_result_with_error(self, sample_alpha_job):
-        """Test AlphaResult with failed status."""
-        error = ValueError("Test error")
+        """Test AlphaResult with failed status stores error as string
+        (for pickling safety)."""
+        # error field is Optional[str] — not Exception — so parallel joblib workers
+        # can serialise AlphaResult across processes without pickle errors.
+        error_msg = "Traceback (most recent call last):\n  ...\nValueError: Test error"
         result = AlphaResult(
             job=sample_alpha_job,
             metrics={},
             status="failed",
-            error=error,
+            error=error_msg,
         )
 
         assert result.status == "failed"
-        assert result.error == error
+        assert isinstance(result.error, str)
+        assert "ValueError" in result.error
 
 
 # ============================================================================
@@ -718,3 +722,464 @@ class TestAlphaResearchIntegration:
         results_df = tester.parameter_sensitivity(base_job, param_grid, n_jobs=1)
 
         assert isinstance(results_df, pd.DataFrame)
+
+
+# ============================================================================
+# Tests for Bug Fixes (High + Medium + Low Priority)
+# ============================================================================
+
+
+class TestBollingerBandsStateMachine:
+    """Tests for the BB state machine fix (was: broken ffill exit
+    logic)."""
+
+    @pytest.fixture()
+    def bb_data(self):
+        """Synthetic data with clear band-crossing events."""
+        idx = pd.date_range("2023-01-01", periods=20)
+        return pd.DataFrame(
+            {
+                # price dips below lower band at bar 3, returns to mid at bar 6
+                # price rises above upper band at bar 9, returns to mid at bar 13
+                "Close": [100, 99, 97, 95, 96, 98, 100, 101, 103, 105, 106, 104, 101, 99, 97, 98, 100, 102, 105, 107],
+                "BB_lower": [96] * 20,
+                "BB_middle": [100] * 20,
+                "BB_upper": [104] * 20,
+                "Open": 100,
+                "High": 110,
+                "Low": 90,
+                "Volume": 1_000_000,
+            },
+            index=idx,
+        )
+
+    def _make_strategy(self, allow_short=True):
+        from quantrl_lab.alpha_research.alpha_strategies import BollingerBandsStrategy
+
+        return BollingerBandsStrategy(
+            lower_col="BB_lower", middle_col="BB_middle", upper_col="BB_upper", allow_short=allow_short
+        )
+
+    def test_buy_entry_below_lower_band(self, bb_data):
+        """Price touching lower band triggers BUY."""
+        strat = self._make_strategy()
+        sigs = strat.generate_signals(bb_data)
+        # Bar 3: close=95 <= lower=96 → BUY
+        assert sigs.iloc[3] == SignalType.BUY.value
+
+    def test_buy_exit_at_middle_band(self, bb_data):
+        """BUY position exits as soon as price reaches middle band."""
+        strat = self._make_strategy()
+        sigs = strat.generate_signals(bb_data)
+        # Bar 6: close=100 >= middle=100 → HOLD (exit)
+        assert sigs.iloc[6] == SignalType.HOLD.value
+
+    def test_exit_sticks_after_middle_cross(self, bb_data):
+        """After exit, HOLD persists until the next entry signal."""
+        strat = self._make_strategy()
+        sigs = strat.generate_signals(bb_data)
+        # Bars 7-8 (close=101, 103) are inside the bands → no new signal → HOLD
+        assert sigs.iloc[7] == SignalType.HOLD.value
+        assert sigs.iloc[8] == SignalType.HOLD.value
+
+    def test_sell_entry_above_upper_band(self, bb_data):
+        """Price touching upper band triggers SELL."""
+        strat = self._make_strategy(allow_short=True)
+        sigs = strat.generate_signals(bb_data)
+        # Bar 9: close=105 >= upper=104 → SELL
+        assert sigs.iloc[9] == SignalType.SELL.value
+
+    def test_sell_exit_at_middle_band(self, bb_data):
+        """SELL position exits as soon as price falls to middle band."""
+        strat = self._make_strategy(allow_short=True)
+        sigs = strat.generate_signals(bb_data)
+        # Bar 13: close=99 <= middle=100 → HOLD (exit)
+        assert sigs.iloc[13] == SignalType.HOLD.value
+
+    def test_no_sell_when_short_disabled(self, bb_data):
+        """SELL signals are suppressed when allow_short=False."""
+        strat = self._make_strategy(allow_short=False)
+        sigs = strat.generate_signals(bb_data)
+        assert SignalType.SELL.value not in sigs.values
+
+    def test_missing_columns_returns_hold(self, bb_data):
+        """Missing indicator columns yields all-HOLD rather than
+        crashing."""
+        from quantrl_lab.alpha_research.alpha_strategies import BollingerBandsStrategy
+
+        strat = BollingerBandsStrategy(lower_col="MISSING_L", middle_col="MISSING_M", upper_col="MISSING_U")
+        sigs = strat.generate_signals(bb_data)
+        assert (sigs == SignalType.HOLD.value).all()
+
+
+class TestErrorStringPickling:
+    """Tests for the error-as-string fix (for joblib pickling
+    safety)."""
+
+    def test_error_field_is_str(self, sample_alpha_job):
+        """AlphaResult.error must be Optional[str], not Exception."""
+        # Verify the field accepts a string (not Exception) by constructing one
+        result = AlphaResult(job=sample_alpha_job, metrics={}, status="failed", error="traceback text")
+        assert isinstance(result.error, str)
+
+    def test_runner_stores_traceback_string_on_failure(self, sample_ohlcv_data):
+        """AlphaRunner.run_job stores a traceback string, not an
+        Exception object."""
+        # Create a job that will definitely fail (unknown indicator)
+        bad_job = AlphaJob(
+            data=sample_ohlcv_data,
+            indicator_name="NONEXISTENT_INDICATOR_XYZ",
+            strategy_name="mean_reversion",
+        )
+        runner = AlphaRunner(verbose=False)
+        result = runner.run_job(bad_job)
+
+        assert result.status == "failed"
+        assert isinstance(result.error, str), "error should be a traceback string, not an Exception"
+        assert len(result.error) > 0
+
+    def test_failed_result_is_picklable(self, sample_ohlcv_data):
+        """Failed AlphaResult must survive pickle round-trip (needed for
+        joblib)."""
+        import pickle
+
+        bad_job = AlphaJob(
+            data=sample_ohlcv_data,
+            indicator_name="NONEXISTENT_INDICATOR_XYZ",
+            strategy_name="mean_reversion",
+        )
+        runner = AlphaRunner(verbose=False)
+        result = runner.run_job(bad_job)
+
+        # Should not raise — was broken before error field was changed to str
+        serialised = pickle.dumps(result)
+        restored = pickle.loads(serialised)
+        assert restored.status == "failed"
+        assert restored.error == result.error
+
+
+class TestMeanReversionIndicatorScale:
+    """Tests for explicit indicator_scale parameter (replaces runtime
+    heuristic)."""
+
+    @pytest.fixture()
+    def rsi_data(self):
+        idx = pd.date_range("2023-01-01", periods=5)
+        return pd.DataFrame({"RSI": [20.0, 35.0, 50.0, 65.0, 80.0], "Close": 100}, index=idx)
+
+    @pytest.fixture()
+    def willr_data(self):
+        idx = pd.date_range("2023-01-01", periods=5)
+        # Williams %R: -100 = most oversold, 0 = most overbought
+        return pd.DataFrame({"WillR": [-90.0, -70.0, -50.0, -30.0, -10.0], "Close": 100}, index=idx)
+
+    def test_default_scale_rsi_oversold_positive(self, rsi_data):
+        """RSI=20 (oversold) should produce a positive score with
+        default scale."""
+        strat = MeanReversionStrategy(indicator_col="RSI")
+        scores = strat.generate_scores(rsi_data)
+        # (50-20)/50 = 0.6 > 0
+        assert scores.iloc[0] > 0
+
+    def test_default_scale_rsi_overbought_negative(self, rsi_data):
+        """RSI=80 (overbought) should produce a negative score."""
+        strat = MeanReversionStrategy(indicator_col="RSI")
+        scores = strat.generate_scores(rsi_data)
+        # (50-80)/50 = -0.6 < 0
+        assert scores.iloc[-1] < 0
+
+    def test_williams_r_scale_oversold_positive(self, willr_data):
+        """WillR=-90 (oversold) should produce a positive score with
+        williams_r scale."""
+        strat = MeanReversionStrategy(indicator_col="WillR", indicator_scale="williams_r")
+        scores = strat.generate_scores(willr_data)
+        # (-50 - -90)/50 = 0.8 > 0
+        assert scores.iloc[0] > 0
+
+    def test_williams_r_scale_overbought_negative(self, willr_data):
+        """WillR=-10 (overbought) should produce a negative score."""
+        strat = MeanReversionStrategy(indicator_col="WillR", indicator_scale="williams_r")
+        scores = strat.generate_scores(willr_data)
+        # (-50 - -10)/50 = -0.8 < 0
+        assert scores.iloc[-1] < 0
+
+    def test_wrong_scale_gives_wrong_sign(self, willr_data):
+        """
+        Using default scale for Williams %R data gives opposite sign to
+        correct scale.
+
+        WillR=-10 is near overbought (should be SELL / negative score).
+        - correct (williams_r): (-50 - -10)/50 = -0.8  (negative → SELL ✓)
+        - wrong   (0_100):      (50  - -10)/50 =  1.2 → clipped to +1.0  (positive → BUY ✗)
+        The two formulas give opposite signs at this extreme value.
+        """
+        strat_wrong = MeanReversionStrategy(indicator_col="WillR", indicator_scale="0_100")
+        strat_correct = MeanReversionStrategy(indicator_col="WillR", indicator_scale="williams_r")
+        # Use last bar: WillR=-10 (overbought)
+        score_wrong = strat_wrong.generate_scores(willr_data).iloc[-1]
+        score_correct = strat_correct.generate_scores(willr_data).iloc[-1]
+        # Correct scale gives negative (SELL), wrong scale gives positive (BUY)
+        assert score_correct < 0, f"Expected negative score for overbought WillR, got {score_correct}"
+        assert score_wrong > 0, f"Expected wrong (positive) score with 0_100 scale, got {score_wrong}"
+
+    def test_scores_clipped_to_unit_range(self, rsi_data):
+        """Scores should always be within [-1, 1]."""
+        strat = MeanReversionStrategy(indicator_col="RSI")
+        scores = strat.generate_scores(rsi_data)
+        assert (scores >= -1.0).all() and (scores <= 1.0).all()
+
+
+class TestCalculatePearsonIC:
+    """Tests for the new calculate_pearson_ic function in metrics.py."""
+
+    def test_perfect_positive_correlation(self):
+        """Perfect positive correlation → IC=1.0, p~0."""
+        from quantrl_lab.alpha_research.metrics import calculate_pearson_ic
+
+        sig = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+        ret = pd.Series([0.01, 0.02, 0.03, 0.04, 0.05])
+        ic, p = calculate_pearson_ic(sig, ret)
+        assert np.isclose(ic, 1.0, atol=1e-6)
+        assert p < 0.05
+
+    def test_no_correlation(self):
+        """No correlation → IC near 0."""
+        from quantrl_lab.alpha_research.metrics import calculate_pearson_ic
+
+        np.random.seed(0)
+        sig = pd.Series(np.random.randn(1000))
+        ret = pd.Series(np.random.randn(1000))
+        ic, p = calculate_pearson_ic(sig, ret)
+        assert abs(ic) < 0.1
+
+    def test_returns_tuple_of_floats(self):
+        """Return type should be (float, float)."""
+        from quantrl_lab.alpha_research.metrics import calculate_pearson_ic
+
+        sig = pd.Series([1.0, 2.0, 3.0])
+        ret = pd.Series([0.1, 0.2, 0.3])
+        ic, p = calculate_pearson_ic(sig, ret)
+        assert isinstance(ic, float)
+        assert isinstance(p, float)
+
+    def test_insufficient_data_returns_zero(self):
+        """Less than 2 valid pairs → IC=0, p=1."""
+        from quantrl_lab.alpha_research.metrics import calculate_pearson_ic
+
+        ic, p = calculate_pearson_ic(pd.Series([1.0]), pd.Series([0.01]))
+        assert ic == 0.0
+        assert p == 1.0
+
+
+class TestColumnCaseNormalisation:
+    """Tests for case-insensitive OHLCV column validation in
+    AlphaRunner."""
+
+    def test_lowercase_columns_auto_renamed(self, sample_ohlcv_data):
+        """Lowercase OHLCV columns are silently renamed to title-
+        case."""
+        df = sample_ohlcv_data.rename(columns=str.lower)
+        runner = AlphaRunner(verbose=False)
+        runner._validate_data(df)  # should not raise
+        assert "Close" in df.columns
+        assert "close" not in df.columns
+
+    def test_mixed_case_columns_auto_renamed(self, sample_ohlcv_data):
+        """Mixed-case columns (e.g., 'CLOSE') are also handled."""
+        df = sample_ohlcv_data.rename(columns=lambda c: c.upper())
+        runner = AlphaRunner(verbose=False)
+        runner._validate_data(df)
+        assert "Close" in df.columns
+
+    def test_truly_missing_column_raises(self, sample_ohlcv_data):
+        """Columns that don't exist at all (even case-insensitively)
+        still raise ValueError."""
+        df = sample_ohlcv_data.drop(columns=["Volume"])
+        runner = AlphaRunner(verbose=False)
+        with pytest.raises(ValueError, match="missing columns"):
+            runner._validate_data(df)
+
+    def test_correct_case_passes_unchanged(self, sample_ohlcv_data):
+        """Correctly-cased columns are not modified."""
+        original_cols = list(sample_ohlcv_data.columns)
+        runner = AlphaRunner(verbose=False)
+        runner._validate_data(sample_ohlcv_data)
+        assert list(sample_ohlcv_data.columns) == original_cols
+
+
+class TestEnsembleDescriptiveColumns:
+    """Tests for descriptive column keys in
+    AlphaEnsemble._get_returns_matrix."""
+
+    def test_column_keys_are_descriptive(self, multiple_alpha_results):
+        """Returns matrix columns use '<indicator>_<job_id>' format."""
+        ensemble = AlphaEnsemble(multiple_alpha_results)
+        mat = ensemble._get_returns_matrix()
+        for col in mat.columns:
+            assert "_" in col, f"Column '{col}' should be 'indicator_jobid' format"
+
+    def test_column_names_match_results(self, multiple_alpha_results):
+        """Each column corresponds to the correct AlphaResult."""
+        ensemble = AlphaEnsemble(multiple_alpha_results)
+        mat = ensemble._get_returns_matrix()
+        for r in multiple_alpha_results:
+            expected_col = f"{r.job.indicator_name}_{r.job.id}"
+            assert expected_col in mat.columns, f"Expected column '{expected_col}' in returns matrix"
+
+
+class TestConverterDeduplication:
+    """Tests for results_to_pipeline_config deduplicate parameter."""
+
+    @pytest.fixture()
+    def multi_rsi_results(self, sample_ohlcv_data):
+        """Three results: two RSI with different windows, one SMA."""
+        equity = pd.Series(np.ones(10), index=pd.date_range("2023-01-01", periods=10))
+        results = []
+        for window, ic in [(14, 0.08), (21, 0.05)]:
+            job = AlphaJob(
+                data=sample_ohlcv_data,
+                indicator_name="RSI",
+                strategy_name="mean_reversion",
+                indicator_params={"window": window},
+            )
+            results.append(AlphaResult(job=job, metrics={"ic": ic}, equity_curve=equity))
+        job_sma = AlphaJob(
+            data=sample_ohlcv_data,
+            indicator_name="SMA",
+            strategy_name="trend_following",
+            indicator_params={"window": 50},
+        )
+        results.append(AlphaResult(job=job_sma, metrics={"ic": 0.06}, equity_curve=equity))
+        return results
+
+    def test_no_dedup_keeps_all(self, multi_rsi_results):
+        """Without deduplication, all three results are returned."""
+        from quantrl_lab.alpha_research.converters import results_to_pipeline_config
+
+        cfg = results_to_pipeline_config(multi_rsi_results, top_n=10, deduplicate=False)
+        assert len(cfg) == 3
+
+    def test_dedup_keeps_best_per_name(self, multi_rsi_results):
+        """With deduplication, only one RSI entry survives (the
+        best)."""
+        from quantrl_lab.alpha_research.converters import results_to_pipeline_config
+
+        cfg = results_to_pipeline_config(multi_rsi_results, top_n=10, metric="ic", deduplicate=True)
+        assert len(cfg) == 2
+        # Best RSI is window=14 (ic=0.08)
+        assert {"RSI": {"window": 14}} in cfg
+
+    def test_dedup_respects_top_n(self, multi_rsi_results):
+        """top_n is applied after deduplication."""
+        from quantrl_lab.alpha_research.converters import results_to_pipeline_config
+
+        cfg = results_to_pipeline_config(multi_rsi_results, top_n=1, metric="ic", deduplicate=True)
+        assert len(cfg) == 1
+        # Best overall is RSI w=14 (ic=0.08)
+        assert {"RSI": {"window": 14}} in cfg
+
+
+class TestParameterSensitivityRouting:
+    """Tests for the explicit indicator_param_grid / strategy_param_grid
+    routing fix."""
+
+    @pytest.fixture()
+    def base_rsi_job(self, sample_ohlcv_data):
+        return AlphaJob(
+            data=sample_ohlcv_data,
+            indicator_name="RSI",
+            strategy_name="mean_reversion",
+            indicator_params={"window": 14},
+        )
+
+    def test_indicator_param_grid_routes_correctly(self, base_rsi_job):
+        """Parameters in indicator_param_grid always go to
+        indicator_params."""
+        tester = RobustnessTester(runner=AlphaRunner(verbose=False))
+        df = tester.parameter_sensitivity(
+            base_rsi_job,
+            indicator_param_grid={"window": [10, 20]},
+            n_jobs=1,
+        )
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert "window" in df.columns
+
+    def test_strategy_param_grid_routes_correctly(self, base_rsi_job):
+        """Parameters in strategy_param_grid always go to
+        strategy_params."""
+        tester = RobustnessTester(runner=AlphaRunner(verbose=False))
+        df = tester.parameter_sensitivity(
+            base_rsi_job,
+            strategy_param_grid={"oversold": [25, 30]},
+            n_jobs=1,
+        )
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 2
+        assert "oversold" in df.columns
+
+    def test_combined_grid_produces_cross_product(self, base_rsi_job):
+        """Both grids combined produce a full cross-product."""
+        tester = RobustnessTester(runner=AlphaRunner(verbose=False))
+        df = tester.parameter_sensitivity(
+            base_rsi_job,
+            indicator_param_grid={"window": [10, 14]},
+            strategy_param_grid={"oversold": [25, 30]},
+            n_jobs=1,
+        )
+        # 2 window values × 2 oversold values = 4 combinations
+        assert len(df) == 4
+
+    def test_legacy_flat_param_grid_still_works(self, base_rsi_job):
+        """Old-style flat param_grid still routes existing keys
+        correctly."""
+        tester = RobustnessTester(runner=AlphaRunner(verbose=False))
+        # 'window' is already in indicator_params → should route there
+        df = tester.parameter_sensitivity(
+            base_rsi_job,
+            param_grid={"window": [10, 14]},
+            n_jobs=1,
+        )
+        assert len(df) == 2
+
+
+class TestAlphaSelectorDefaults:
+    """Tests for AlphaSelector default candidate coverage."""
+
+    def test_default_candidates_cover_all_strategies(self, sample_ohlcv_data):
+        """Every registered strategy should have at least one default
+        candidate."""
+        from quantrl_lab.alpha_research.registry import VectorizedStrategyRegistry
+        from quantrl_lab.alpha_research.selector import AlphaSelector
+
+        sel = AlphaSelector(data=sample_ohlcv_data, verbose=False)
+        candidates = sel._get_default_candidates()
+
+        # Every registered strategy should be reachable via some indicator
+        registered = set(VectorizedStrategyRegistry.list_strategies())
+        for strategy_name in registered:
+            mapped = any(
+                sel._map_indicator_to_strategy(c) is not None
+                and sel._map_indicator_to_strategy(c)["name"] == strategy_name
+                for c in candidates
+            )
+            assert mapped, f"No default candidate maps to strategy '{strategy_name}'"
+
+    def test_ema_is_in_default_candidates(self, sample_ohlcv_data):
+        """EMA was missing before the fix — verify it is now
+        included."""
+        from quantrl_lab.alpha_research.selector import AlphaSelector
+
+        sel = AlphaSelector(data=sample_ohlcv_data, verbose=False)
+        candidates = sel._get_default_candidates()
+        names = {c["name"] for c in candidates}
+        assert "EMA" in names
+
+    def test_ema_maps_to_trend_following(self, sample_ohlcv_data):
+        """EMA indicator should map to the trend_following strategy."""
+        from quantrl_lab.alpha_research.selector import AlphaSelector
+
+        sel = AlphaSelector(data=sample_ohlcv_data, verbose=False)
+        result = sel._map_indicator_to_strategy({"name": "EMA"})
+        assert result is not None
+        assert result["name"] == "trend_following"
