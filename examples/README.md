@@ -34,11 +34,24 @@ This folder contains example scripts demonstrating key features of QuantRL-Lab.
 | Script | Description | API Key Required |
 |--------|-------------|------------------|
 | `indicators_usage.py` | Technical indicator registry usage | No |
+| `indicator_selection_workflow.py` | Alpha-driven indicator selection via `AlphaSelector` | No |
+
+### Alpha Research (`examples/alpha_research/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `run_alpha_workflow.py` | Full alpha pipeline: selection, ensemble, robustness, HTML report | No |
 
 ### Core Concepts (`examples/core_concepts/`)
 | Script | Description | API Key Required |
 |--------|-------------|------------------|
 | `protocol_demonstration.py` | Data source protocol capabilities | No |
+
+### End-to-End Training (`examples/end_to_end/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `single_asset/train_single_symbol.py` | Full pipeline: data → alpha → training → evaluation | No |
+| `single_asset/train_multi_symbol.py` | Multi-symbol vectorized training with async data fetch | Optional |
+| `single_asset/tune_single_symbol.py` | Hyperparameter tuning via Optuna (3-way split) | No |
 
 ## Setup
 
@@ -95,12 +108,31 @@ uv run python examples/data_sources/fetch_alphavantage_data.py
 uv run python examples/data_sources/fetch_fmp_data.py
 ```
 
-### Other Examples
+### Feature & Alpha Research
 
 ```bash
-# Technical indicators
+# Technical indicator registry
 uv run python examples/features/indicators_usage.py
+
+# Alpha-driven indicator selection
+uv run python examples/features/indicator_selection_workflow.py
+
+# Full alpha research pipeline (selection, ensemble, robustness, HTML report)
+uv run python examples/alpha_research/run_alpha_workflow.py
 
 # Protocol capabilities
 uv run python examples/core_concepts/protocol_demonstration.py
+```
+
+### End-to-End Training
+
+```bash
+# Single stock: data → alpha research → training → evaluation
+uv run python examples/end_to_end/single_asset/train_single_symbol.py
+
+# Multi-symbol: vectorized training across multiple stocks
+uv run python examples/end_to_end/single_asset/train_multi_symbol.py
+
+# Hyperparameter tuning with Optuna
+uv run python examples/end_to_end/single_asset/tune_single_symbol.py
 ```
