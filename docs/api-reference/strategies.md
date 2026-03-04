@@ -2,47 +2,68 @@
 
 ## Base Interfaces
 
-::: quantrl_lab.environments.strategies.actions
+::: quantrl_lab.environments.core.interfaces
+    options:
+        show_root_heading: true
+        members:
+            - BaseActionStrategy
+            - BaseObservationStrategy
+            - BaseRewardStrategy
+
+## Action Strategies
+
+::: quantrl_lab.environments.stock.strategies.actions.standard
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.strategies.rewards
+::: quantrl_lab.environments.stock.strategies.actions.time_in_force
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.strategies.observations
+## Observation Strategies
+
+::: quantrl_lab.environments.stock.strategies.observations.feature_aware
     options:
         show_root_heading: true
 
-## Stock Trading Strategies
+## Reward Strategies
 
-### Actions
-
-::: quantrl_lab.environments.stock.strategies.actions.standard_market_action_strategy
+::: quantrl_lab.environments.stock.strategies.rewards.portfolio_value
     options:
         show_root_heading: true
 
-### Rewards
-
-
-::: quantrl_lab.environments.stock.strategies.rewards.portfolio_reward
+::: quantrl_lab.environments.stock.strategies.rewards.sortino
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.stock.strategies.rewards.trend_following_reward
+::: quantrl_lab.environments.stock.strategies.rewards.sharpe
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.stock.strategies.rewards.position_sizing_reward
+::: quantrl_lab.environments.stock.strategies.rewards.drawdown
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.stock.strategies.rewards.weighted_composite_reward
+::: quantrl_lab.environments.stock.strategies.rewards.turnover
     options:
         show_root_heading: true
 
-### Observations
+::: quantrl_lab.environments.stock.strategies.rewards.invalid_action
+    options:
+        show_root_heading: true
 
-::: quantrl_lab.environments.stock.strategies.observations.portfolio_w_trend_observation
+::: quantrl_lab.environments.stock.strategies.rewards.boredom
+    options:
+        show_root_heading: true
+
+::: quantrl_lab.environments.stock.strategies.rewards.execution_bonus
+    options:
+        show_root_heading: true
+
+::: quantrl_lab.environments.stock.strategies.rewards.expiration
+    options:
+        show_root_heading: true
+
+::: quantrl_lab.environments.stock.strategies.rewards.composite
     options:
         show_root_heading: true

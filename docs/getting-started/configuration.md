@@ -4,106 +4,51 @@
 
 QuantRL-Lab environments accept a configuration object that controls trading behavior, risk parameters, and episode settings.
 
-## StockTradingConfig
+## SingleStockEnvConfig
 
 ```python
-from quantrl_lab.environments.stock.stock_config import StockTradingConfig
+from quantrl_lab.environments.stock.components.config import SingleStockEnvConfig, SimulationConfig
 
-config = StockTradingConfig(
-    initial_balance=10000,        # Starting capital (USD)
-    transaction_cost_pct=0.001,   # 0.1% per trade
+config = SingleStockEnvConfig(
+    initial_balance=100000.0,     # Starting capital (USD)
     window_size=20,               # Lookback period for observations
-    max_shares_per_trade=100,     # Position sizing limit
-    enable_shorting=False,        # Allow short positions
-    max_position_size=0.5         # Max 50% of portfolio in single position
+    simulation=SimulationConfig(
+        transaction_cost_pct=0.001,      # 0.1% per trade
+        slippage=0.001,                  # Slippage percentage
+        enable_shorting=False,           # Allow short positions
+        order_expiration_steps=5,        # Steps before pending order expires
+        ignore_fees=False,               # Whether to ignore transaction costs
+    )
 )
 ```
 
 ## Configuration Parameters
 
-### Capital & Risk
+### `SingleStockEnvConfig`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `initial_balance` | float | 10000 | Starting capital in USD |
-| `transaction_cost_pct` | float | 0.001 | Transaction cost as % of trade value |
-| `max_position_size` | float | 1.0 | Maximum position size as fraction of portfolio |
-
-### Trading Rules
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enable_shorting` | bool | False | Allow short positions |
-| `max_shares_per_trade` | int | None | Maximum shares per single trade (None = unlimited) |
-| `min_shares_per_trade` | int | 1 | Minimum shares per trade |
-
-### Episode Settings
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| `initial_balance` | float | 100000.0 | Starting capital in USD |
 | `window_size` | int | 20 | Number of historical steps in observations |
-| `max_episode_steps` | int | None | Maximum steps before termination (None = full dataset) |
+| `price_column_index` | int | 0 | Index of price column in data array |
 
-## Strategy Configuration
+### `SimulationConfig` (nested under `simulation`)
 
-=== "Action Strategy"
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `transaction_cost_pct` | float | 0.001 | Transaction cost as % of trade value |
+| `slippage` | float | 0.001 | Slippage percentage for market orders |
+| `enable_shorting` | bool | False | Allow short positions |
+| `order_expiration_steps` | int | 5 | Steps before a pending order expires |
+| `ignore_fees` | bool | False | Whether to ignore transaction costs |
 
-    ```python
-    from quantrl_lab.environments.stock.strategies.actions import StandardMarketActionStrategy
+### `RewardConfig` (nested under `rewards`)
 
-    action_strategy = StandardMarketActionStrategy(
-        max_shares_per_trade=100,
-        allow_partial_fills=True
-    )
-    ```
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `clip_range` | tuple | (-1.0, 1.0) | Range to clip the final reward |
 
-=== "Observation Strategy"
-
-    ```python
-    from quantrl_lab.environments.stock.strategies.observations import PortfolioWithTrendObservation
-
-    observation_strategy = PortfolioWithTrendObservation(
-        include_indicators=['SMA_20', 'RSI_14', 'MACD'],
-        normalize=True
-    )
-    ```
-
-=== "Reward Strategy"
-
-    ```python
-    from quantrl_lab.environments.stock.strategies.rewards import WeightedCompositeReward
-
-    # Use preset
-    reward_strategy = WeightedCompositeReward.from_preset("balanced")
-
-    # Or custom weights
-    reward_strategy = WeightedCompositeReward(
-        components=[
-            PortfolioValueChangeReward(),
-            TrendFollowingReward(),
-            InvalidActionPenalty()
-        ],
-        weights=[0.5, 0.3, 0.2]  # Must sum to 1.0
-    )
-    ```
-
-## Reward Presets
-
-Available presets in `WeightedCompositeReward.from_preset()`:
-
-| Preset | Description |
-|--------|-------------|
-| `conservative` | Emphasizes portfolio value growth and penalizes risk |
-| `explorative` | Encourages trading and exploration |
-| `balanced` | Balanced approach between growth and risk management |
-| `risk_managed` | Strong focus on downside protection |
-
-!!! tip "Choosing a preset"
-    Start with `balanced` for general-purpose training. Use `conservative` if
-    your agent takes too many risky trades, or `explorative` if it learns to
-    hold indefinitely.
-
-See [`reward_presets.py`](https://github.com/whanyu1212/QuantRL-Lab/blob/main/src/quantrl_lab/experiments/backtesting/config/reward_presets.py) for preset definitions.
+For strategy configuration details (action space, observation features, reward components), see [Environments](../environments.md).
 
 ## Data Configuration
 
@@ -145,72 +90,16 @@ See [`reward_presets.py`](https://github.com/whanyu1212/QuantRL-Lab/blob/main/sr
 
 ### Technical Indicators
 
+For the full list of available indicators and pipeline steps, see [Data Processing](../data-processing.md). Quick example:
+
 ```python
 from quantrl_lab.data.processing.processor import DataProcessor
-from quantrl_lab.data.indicators import IndicatorRegistry
 
-# List available indicators
-IndicatorRegistry.list_all()
-# Output: ['SMA', 'EMA', 'RSI', 'MACD', 'BB', 'ATR', ...]
-
-# Apply indicators
 processor = DataProcessor(ohlcv_data=df)
 df, metadata = processor.data_processing_pipeline(
-    indicators=["SMA", "EMA", "RSI", "MACD"],
-    indicators=["SMA", "EMA", "RSI", "MACD"],
-    sma_window=20,   # (1)!
-    ema_window=12,
-    rsi_window=14
+    indicators=["SMA", "RSI", {"EMA": {"window": 20}}, "MACD"]
 )
 ```
-
-1. Each indicator accepts its own keyword arguments for customization
-
-## Complete Example
-
-??? example "Full configuration example (click to expand)"
-
-    ```python
-    from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
-    from quantrl_lab.data.processing.processor import DataProcessor
-    from quantrl_lab.environments.stock.env_single_stock import SingleStockTradingEnv
-    from quantrl_lab.environments.stock.stock_config import StockTradingConfig
-    from quantrl_lab.environments.stock.strategies import (
-        StandardMarketActionStrategy,
-        PortfolioWithTrendObservation,
-        WeightedCompositeReward
-    )
-
-    # 1. Load data
-    loader = YFinanceDataLoader()
-    df = loader.get_historical_ohlcv_data(symbols="AAPL", start="2020-01-01", end="2023-12-31")
-
-    # 2. Add indicators
-    processor = DataProcessor(ohlcv_data=df)
-    df, metadata = processor.data_processing_pipeline(indicators=["SMA", "EMA", "RSI"])
-
-    # 3. Configure environment
-    config = StockTradingConfig(
-        initial_balance=10000,
-        transaction_cost_pct=0.001,
-        window_size=20,
-        enable_shorting=False
-    )
-
-    # 4. Define strategies
-    action_strategy = StandardMarketActionStrategy()
-    observation_strategy = PortfolioWithTrendObservation()
-    reward_strategy = WeightedCompositeReward.from_preset("balanced")
-
-    # 5. Create environment
-    env = SingleStockTradingEnv(
-        data=df,
-        config=config,
-        action_strategy=action_strategy,
-        observation_strategy=observation_strategy,
-        reward_strategy=reward_strategy
-    )
-    ```
 
 ## Next Steps
 

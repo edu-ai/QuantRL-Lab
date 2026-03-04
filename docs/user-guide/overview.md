@@ -36,10 +36,11 @@ This architecture enables:
     Defines how raw agent actions are processed into market orders.
 
     ```python
-    from quantrl_lab.environments.stock.strategies.actions import StandardMarketActionStrategy
+    from quantrl_lab.environments.stock.strategies.actions import StandardActionStrategy
 
-    action_strategy = StandardMarketActionStrategy()
-    # Actions: 0=hold, 1=buy, 2=sell
+    action_strategy = StandardActionStrategy()
+    # Continuous Box space: [action_type, amount, price_modifier]
+    # Supports: Hold, Buy, Sell, LimitBuy, LimitSell, StopLoss, TakeProfit
     ```
 
 === "Observation Strategy"
@@ -47,10 +48,10 @@ This architecture enables:
     Constructs the state representation the agent sees.
 
     ```python
-    from quantrl_lab.environments.stock.strategies.observations import PortfolioWithTrendObservation
+    from quantrl_lab.environments.stock.strategies.observations import FeatureAwareObservationStrategy
 
-    observation_strategy = PortfolioWithTrendObservation()
-    # Returns: portfolio state + technical indicators
+    observation_strategy = FeatureAwareObservationStrategy()
+    # Returns: flattened market window + 9 portfolio/engineering features
     ```
 
 === "Reward Strategy"
@@ -68,8 +69,8 @@ This architecture enables:
 
 ```mermaid
 graph TD
-    A[DataLoader<br/>Alpaca / YFinance / AlphaVantage] -->|fetch_data| B[DataFrame with OHLCV]
-    B -->|DataProcessor.data_processing_pipeline| C[DataFrame with technical indicators]
+    A[DataLoader<br/>Alpaca / YFinance / AlphaVantage] -->|get_historical_ohlcv_data| B[DataFrame with OHLCV]
+    B -->|DataProcessor.data_processing_pipeline| C[DataFrame with indicators,<br/>sentiment, analyst data]
     C -->|pass to env| D[SingleStockTradingEnv]
     D -->|step delegates to| E[Action / Observation / Reward strategies]
 ```
@@ -82,104 +83,38 @@ Each call to `env.step(action)` follows this sequence:
 sequenceDiagram
     participant Agent
     participant Env as SingleStockTradingEnv
-    participant Act as ActionStrategy
     participant Port as Portfolio
-    participant Obs as ObservationStrategy
+    participant Act as ActionStrategy
     participant Rew as RewardStrategy
+    participant Obs as ObservationStrategy
 
     Agent->>Env: step(action)
-    Env->>Act: process_action(action)
-    Act-->>Port: execute trades
-    Env->>Port: update_holdings()
-    Env->>Obs: build_observation()
+    Env->>Env: store prev_portfolio_value
+    Env->>Port: process_open_orders()
+    Note over Port: process pending limit/stop orders
+    Env->>Act: handle_action(action)
+    Act-->>Port: execute new order
+    Env->>Env: advance current_step, check terminated/truncated
     Env->>Rew: calculate_reward()
-    Env->>Env: check_terminal_conditions()
-    Env-->>Agent: observation, reward, done, info
+    Env->>Env: clip reward to reward_clip_range
+    Env->>Rew: on_step_end() (stateful hook)
+    Env->>Obs: build_observation()
+    Env-->>Agent: observation, reward, terminated, truncated, info
 ```
 
-## Environment Configuration
+## Configuration & Non-Obvious Behaviors
 
-```python
-from quantrl_lab.environments.stock.stock_config import StockTradingConfig
-
-config = StockTradingConfig(
-    initial_balance=10000,        # Starting capital
-    transaction_cost_pct=0.001,   # 0.1% per trade
-    window_size=20,               # Lookback period
-    max_shares_per_trade=100,     # Position sizing limit
-    enable_shorting=False         # Allow short positions
-)
-```
-
-!!! note "Non-obvious behaviors"
-    - `current_step` is **0-indexed** into the data array
-    - `window_size` determines the lookback for observations
-    - Portfolio resets to `initial_balance` on `reset()` but keeps transaction history
-    - Price column is auto-detected: searches `close`, `Close`, `adj_close`, or the 4th column
+See [Configuration](../getting-started/configuration.md) for all `SingleStockEnvConfig` / `SimulationConfig` parameters. For subtle runtime behaviors (step timing, window padding, price auto-detection, order persistence), see [Architecture — Non-Obvious Behaviours](../ARCHITECTURE.md#non-obvious-behaviours).
 
 ## Backtesting Workflow
 
-train_df = df[:split_idx]
-test_df = df[split_idx:]
-### 1. Data Preparation
-```python
-from quantrl_lab.data.sources.yfinance import YFinanceDataLoader
-from quantrl_lab.data.processing.processor import DataProcessor
-
-loader = YFinanceDataLoader()
-df = loader.fetch_data(symbol="AAPL", start_date="2020-01-01", end_date="2023-12-31")
-
-# Initialize processor with data
-processor = DataProcessor(ohlcv_data=df)
-
-# Run standard pipeline (indicators + cleanup)
-processed_df, metadata = processor.data_processing_pipeline(
-    indicators=["SMA", "EMA", "RSI"],
-    fillna_strategy="neutral"
-)
-```
-    WeightedCompositeReward
-)
-
-action_strategy = StandardMarketActionStrategy()
-observation_strategy = PortfolioWithTrendObservation()
-reward_strategy = WeightedCompositeReward.from_preset("balanced")
-```
-
-### 4. Training
-```python
-from quantrl_lab.experiments.backtesting import BacktestRunner
-from stable_baselines3 import PPO
-
-env_config = BacktestRunner.create_env_config_factory(
-    train_data=train_df,
-    test_data=test_df,
-    action_strategy=action_strategy,
-    observation_strategy=observation_strategy,
-    reward_strategy=reward_strategy
-)
-
-runner = BacktestRunner(verbose=1)
-results = runner.run_single_experiment(
-    PPO,
-    env_config,
-    total_timesteps=50000,
-    num_eval_episodes=3
-)
-```
-
-### 5. Evaluation
-```python
-BacktestRunner.inspect_single_experiment(results)
-# Displays: final portfolio value, Sharpe ratio, max drawdown, win rate
-```
+For a complete training + evaluation workflow, see [Backtesting](backtesting.md) and [Experiments](../experiments.md).
 
 ## Advanced Topics
 
 - [Custom Strategies](custom-strategies.md) - Build custom action/observation/reward strategies
 - [Backtesting](backtesting.md) - Advanced backtesting workflows and metrics
-- [Feature Engineering](../examples/feature-engineering.md) - Vectorized strategy analysis
-- [Hyperparameter Tuning](../examples/hyperparameter-tuning.md) - Optuna optimization
+- [Reward Shaping](reward_shaping.md) - Techniques for stable, informative reward signals
 
 ## Next Steps
 

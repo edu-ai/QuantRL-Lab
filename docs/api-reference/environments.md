@@ -1,25 +1,36 @@
 # Environments
 
-## Core
+## Interfaces & Protocols
 
-::: quantrl_lab.environments.base.trading_env
+::: quantrl_lab.environments.core.interfaces
+    options:
+        show_root_heading: true
+        members:
+            - TradingEnvProtocol
+            - BaseActionStrategy
+            - BaseObservationStrategy
+            - BaseRewardStrategy
+
+## Types
+
+::: quantrl_lab.environments.core.types
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.base.portfolio
+## Configuration
+
+::: quantrl_lab.environments.stock.components.config
     options:
         show_root_heading: true
 
-## Stock Trading
+## SingleStockTradingEnv
 
-::: quantrl_lab.environments.stock.env_single_stock
+::: quantrl_lab.environments.stock.single
     options:
         show_root_heading: true
 
-::: quantrl_lab.environments.stock.stock_portfolio
-    options:
-        show_root_heading: true
+## Portfolio
 
-::: quantrl_lab.environments.stock.stock_config
+::: quantrl_lab.environments.stock.components.portfolio
     options:
         show_root_heading: true

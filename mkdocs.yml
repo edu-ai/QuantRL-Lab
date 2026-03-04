@@ -7,7 +7,8 @@ repo_name: whanyu1212/QuantRL-Lab
 
 theme:
   name: material
-  logo: fontawesome/solid/rocket
+  logo: assets/logo.svg
+  custom_dir: docs/overrides
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
@@ -49,6 +50,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
+          paths: [src]
           options:
             docstring_style: google
             show_source: true
@@ -91,25 +93,23 @@ nav:
       - Overview: user-guide/overview.md
       - Custom Strategies: user-guide/custom-strategies.md
       - Backtesting: user-guide/backtesting.md
-  - Architecture:
-      - Overview: ARCHITECTURE.md
-      - Design Decisions: ARCHITECTURAL_DECISIONS.md
-  - Data Sources:
-      - Complete Guide: DATA_SOURCES.md
-      - Protocol Reference: NEW_PROTOCOLS_REFERENCE.md
-  - Implementation Notes:
-      - Implementation Summary: IMPLEMENTATION_SUMMARY.md
-      - Protocol Expansion: PROTOCOL_EXPANSION_SUMMARY.md
-      - Documentation Index: DOCUMENTATION_INDEX.md
+      - Reward Shaping: user-guide/reward_shaping.md
+      - Generalization: user-guide/generalization.md
+  - Architecture: ARCHITECTURE.md
+  - Data Sources: DATA_SOURCES.md
+  - Data Processing: data-processing.md
+  - Environments: environments.md
+  - Experiments: experiments.md
   - API Reference:
       - Environments: api-reference/environments.md
       - Data Sources: api-reference/data-sources.md
+      - Processing: api-reference/processing.md
       - Strategies: api-reference/strategies.md
+      - Experiments & Utilities: api-reference/utils.md
   - Examples:
       - Basic Backtest: examples/basic-backtest.md
       - Feature Engineering: examples/feature-engineering.md
       - Hyperparameter Tuning: examples/hyperparameter-tuning.md
-
 extra:
   social:
     - icon: fontawesome/brands/github
