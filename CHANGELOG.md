@@ -8,122 +8,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Data utility modules** (`src/quantrl_lab/data/utils/`): Comprehensive utility library with 118 tests
-  - `date_parsing.py`: Unified date normalization, validation, and formatting across all data sources
-  - `symbol_handling.py`: Standardized symbol validation and normalization with max symbol limits
-  - `dataframe_normalization.py`: OHLCV data standardization pipeline (column renaming, type conversion, sorting)
-  - `response_validation.py`: API response validation, safe DataFrame conversion, and logging helpers
-  - `request_utils.py`: HTTP request wrapper with configurable retry strategies (exponential/linear backoff), rate limiting, and automatic rate limit error detection
-- **AnalystDataCapable protocol** (`src/quantrl_lab/data/interface.py`):
-  - New protocol for data sources providing analyst ratings and grades
-  - Methods: `get_historical_grades()` and `get_historical_rating()`
-  - FMPDataSource now implements this protocol
-- **Comprehensive test suite for utilities** (`tests/data/utils/`):
-  - `test_date_parsing.py`: 22 tests covering all date handling edge cases
-  - `test_symbol_handling.py`: 24 tests for symbol validation and normalization
-  - `test_dataframe_normalization.py`: 24 tests for DataFrame pipeline operations
-  - `test_response_validation.py`: 28 tests for API response handling
-  - `test_request_utils.py`: 20 tests for HTTP wrapper with retry logic
-- **FMP (Financial Modeling Prep) data source** (`src/quantrl_lab/data/sources/fmp_loader.py`):
-  - Support for daily end-of-day (EOD) data
-  - Support for intraday data with multiple timeframes: 5min, 15min, 30min, 1hour, 4hour
-  - Optional `nonadjusted` parameter for raw price data
-  - Comprehensive test suite with 4 test cases
-- **Documentation site** powered by MkDocs Material (`mkdocs.yml`, `docs/`):
-  - Comprehensive guides and API reference
-  - Architecture documentation with Mermaid diagrams
-  - User guides for custom strategies and backtesting
-  - API reference auto-generated from docstrings
-- **CLAUDE.md**: Guidance file for Claude Code (claude.ai/code) with quick reference commands and architecture overview
-- **AGENTS.md**: Comprehensive guide for AI assistants working with the codebase
-  - Architecture patterns (protocol-based design, registry pattern, strategy injection)
-  - Common workflows and development gotchas
-  - Essential commands for uv, testing, and notebooks
-- **Comprehensive test suite** for data module:
-  - `tests/data/test_indicators.py` - 40 tests for IndicatorRegistry and all technical indicators (SMA, EMA, RSI, MACD, ATR, Bollinger Bands, Stochastic, OBV)
-  - `tests/data/test_data_sources.py` - 34 unit tests for data loaders with mocked APIs
-  - `tests/data/test_data_sources_integration.py` - 16 integration tests using real APIs (YFinance, Alpaca, Alpha Vantage)
-- **Integration test marker** (`@pytest.mark.integration`) to separate API-dependent tests from unit tests
-- **Protocol-based data interface improvements**:
-  - Standardized return type to `pd.DataFrame` for `NewsDataCapable`, `FundamentalDataCapable`, and `MacroDataCapable` protocols
-  - Runtime capability checks with `isinstance()` for better error handling
-  - Added defensive checks in `DataSourceRegistry` to validate protocol implementation before method calls
-- **Enhanced type hints**: Added proper type annotations to `DataSourceRegistry.__init__()` for better IDE support
+
+- **New reward strategies** (`src/quantrl_lab/environments/stock/strategies/rewards/`):
+  - `BoredomPenaltyReward`: Penalizes holding an open position for too long to discourage passive strategies.
+  - `LimitExecutionReward`: Rewards price improvement achieved when a limit order fills better than the reference price.
+  - `TurnoverPenaltyReward`: Penalizes excessive trading proportional to fees paid, encouraging efficiency.
+  - `OrderExpirationPenaltyReward`: Penalizes expired limit orders to discourage order spamming.
+- **`BacktestEnvironmentBuilder`** (`src/quantrl_lab/experiments/backtesting/builder.py`):
+  - Fluent builder API replacing the deprecated `create_env_config_factory` function.
+  - Supports `with_data()`, `with_env_params()`, `with_strategies()`, and `build()` chaining.
+  - Accepts optional `eval_data` for 3-way train/eval/test splits used in Optuna tuning.
+- **`ExperimentJob` and `JobGenerator`** (`src/quantrl_lab/experiments/backtesting/core.py`):
+  - `ExperimentJob`: Dataclass encapsulating algorithm class, env config, hyperparameters, and timesteps.
+  - `JobGenerator.generate_grid()`: Generates a cross-product batch of jobs across algorithms, configs, and env configs.
+- **`AgentExplainer`** (`src/quantrl_lab/experiments/backtesting/explainer.py`):
+  - Feature importance analysis via Input×Gradient saliency (deep learning attribution) with automatic fallback to Pearson correlation.
+  - Supports RecurrentPPO/LSTM policies (forced correlation mode).
+  - Always restores `training_mode` after saliency analysis via `try/finally`.
+- **`BacktestMetrics`** (`src/quantrl_lab/experiments/backtesting/metrics.py`):
+  - Standalone metrics computation: Sharpe ratio, Sortino ratio, max drawdown, Calmar ratio, win rate, profit factor.
+- **Action distribution display** in `BacktestRunner.inspect_result()`: aggregates and prints a table of action counts and percentages across all episodes.
+- **Async data loading**: All data loaders now expose `async_fetch_ohlcv()` and related async methods for concurrent multi-symbol fetching.
+- **`async_request_utils`** (`src/quantrl_lab/data/utils/async_request_utils.py`): shared async HTTP helpers with retry and rate-limit handling.
+- **Alpha research module** (`src/quantrl_lab/alpha_research/`):
+  - `AlphaSelector`: selects informative indicators using IC (Information Coefficient), Rank IC, and win rate metrics.
+  - `AlphaRegistry`: decorator-based registry for custom alpha strategies.
+  - `AlphaEnsemble`: combines multiple alpha signals with configurable weighting.
+  - `AlphaRunner`: orchestrates end-to-end signal discovery workflows.
+  - Vectorized strategy implementations: `BollingerBandsStrategy`, momentum, mean-reversion.
+  - Visualization helpers for signal analysis reports.
+- **End-to-end example scripts** (`examples/end_to_end/`):
+  - `train_single_symbol.py`: single-stock PPO training with `BacktestEnvironmentBuilder`.
+  - `train_multi_symbol.py`: multi-symbol shared PPO policy via `SubprocVecEnv` + RecurrentPPO/LSTM.
+  - `train_single_symbol_sac.py`: single-stock SAC (off-policy, `n_envs=1`, `ent_coef="auto"`).
+  - `train_single_symbol_a2c.py`: single-stock A2C (`n_envs=4`, short rollout `n_steps=5`).
+  - `train_multi_symbol_sac.py`: per-symbol SAC grid via `JobGenerator` + `inspect_batch()`.
+  - `train_multi_symbol_a2c.py`: shared A2C policy across symbols via `SubprocVecEnv`.
+  - `tune_single_symbol.py`: full Optuna PPO tuning with 3-way split, refit, and test evaluation.
+  - Shared `data_utils.py` with `init_data_sources()`, `select_alpha_indicators()`, `process_symbol()`, and split helpers.
+- **Optuna tuning improvements** (`src/quantrl_lab/experiments/tuning/optuna_runner.py`):
+  - SQLite study persistence with `load_if_exists=True`.
+  - Guard against unsafe `n_jobs > 1` with SQLite storage (auto-fallback to 1).
+  - `create_ppo_search_space()` helper with recommended search ranges.
+- **Alternative data pipeline steps** (`src/quantrl_lab/data/processing/steps/alternative/`):
+  - `analyst.py`: integrates analyst ratings and grades into the feature pipeline.
+  - `sentiment.py`: integrates news sentiment scores.
+- **Test coverage expansions**:
+  - `tests/environments/stock/strategies/rewards/test_boredom.py`
+  - `tests/environments/stock/test_time_in_force_action.py`
+  - `tests/experiments/backtesting/test_builder.py`, `test_metrics.py`, `test_runner.py`
+  - `tests/experiments/tuning/test_optuna_runner.py`
+  - `tests/data/sources/test_async_loaders.py`
+  - `tests/data/utils/test_async_request_utils.py`
+  - `tests/alpha_research/test_alpha_research.py`
+  - `tests/data/processing/steps/alternative/test_analyst.py`
+- **GitHub Pages documentation hosting** via `deploy-docs.yml` GitHub Actions workflow.
+- **GEMINI.md** and **AGENTS.md**: guidance files for AI assistants with architecture patterns and common workflows.
 
 ### Changed
-- **Updated CI/CD workflows** (`.github/workflows/ci.yaml`, `.github/workflows/cd.yaml`):
-  - Migrated from Poetry to uv for consistency with local development
-  - Added `-m "not integration"` to exclude API-dependent tests
-  - Updated import paths from `custom_envs` to `environments`
-  - Upgraded GitHub Actions to v4 (checkout, codecov)
-  - Use `uv build` and `uv publish` for package building/publishing
-  - Removed manual Poetry caching (uv handles this automatically)
-- **Migrated from Poetry to uv** for faster dependency management
-  - 10-100x faster package resolution and installation
-  - Maintains compatibility with existing `pyproject.toml`
-  - Updated all documentation and CI/CD workflows
-- **Restructured data module**:
-  - Renamed `loaders/` → `sources/` for clarity
-  - Separated data processing logic into dedicated `processors/` submodule
-  - Enhanced data source interface with `DataSource` abstract base class
-  - Improved feature detection via `supported_features` property
-- **Reorganized experiment workflows**:
-  - Grouped offline experiments under `experiments/` (backtesting, feature engineering, tuning, screening)
-  - Separated production code under `deployment/` (trading only)
-  - Moved `screening/` from `deployment/` → `experiments/` (hedge pair discovery is research, not production)
-  - Moved `feature_selection/` → `feature_engineering/` for accuracy
-- **Refined documentation**: Updated README with system architecture diagrams (Mermaid)
-  - Protocol pattern illustration
-  - Registry pattern workflow
-  - Strategy injection design
+
+- **`BacktestRunner` API** (`src/quantrl_lab/experiments/backtesting/runner.py`):
+  - Replaced `run_single_experiment()` / `inspect_single_experiment()` with `run_job()` / `inspect_result()`.
+  - Added `run_batch()` / `inspect_batch()` for batch experiment comparison.
+  - Fixed critical bug: `total_timesteps` from `ExperimentJob` was never forwarded to `train_model()` (always used default 10,000).
+  - Initialized `explanation_method` before try block to prevent potential `UnboundLocalError`.
+- **`DataPipeline` builder pattern** (`src/quantrl_lab/data/processing/pipeline.py`): refined step registration and async step execution support.
+- **`FeatureAwareObservationStrategy`** (`src/quantrl_lab/environments/stock/strategies/observations/feature_aware.py`): improved stationary feature normalization logic.
+- **Reward shaping guidance**: all example scripts now use `PortfolioValueChangeReward` as the primary signal with a minimal `TurnoverPenaltyReward`. Heavy penalties (Sortino, drawdown) are documented as causing "do nothing" convergence in short training runs.
+- **Documentation overhaul** (`docs/`):
+  - Added standalone top-level guide tabs: `DATA_SOURCES.md`, `data-processing.md`, `environments.md`, `experiments.md`.
+  - Slimmed `ARCHITECTURE.md` to ~170 lines; removed Mermaid diagrams that caused rendering issues.
+  - Eliminated duplicated content across `overview.md`, `configuration.md`, `backtesting.md`, and `environments.md` — replaced with cross-links.
+  - GitHub Pages deployment switched to `uv sync --all-extras` so mkdocstrings can import the full package.
+- **`experiments/alpha_research/` moved** to top-level `src/quantrl_lab/alpha_research/` and `experiments/__init__.py` updated accordingly.
 
 ### Fixed
-- Protocol return type consistency for better downstream processing
-- Missing error handling when data sources don't implement required protocols
-- **YFinance loader bug**: Fixed `period=timeframe` → `interval=timeframe` parameter in `get_historical_ohlcv_data()` which was causing API errors
-- **Alpha Vantage free tier compatibility**: Fixed API failures due to premium-only features
-  - Changed default `outputsize` from `full` to `compact` (last 100 data points)
-  - Added automatic rate limiting (1.2s between requests) to respect 1 req/sec burst limit
-  - Added `Information` key logging to surface API error messages (rate limits, premium requirements)
-  - Updated docstrings and example file with accurate free tier limitations
-- **Documentation build warnings** (MkDocs):
-  - Fixed 21 griffe docstring warnings by adding type hints (`**kwargs: Any`) and improving docstring formatting
-  - Fixed broken links in ARCHITECTURE.md (updated to GitHub URLs)
-  - Added ARCHITECTURE.md to navigation
-  - Disabled social plugin (resolved logo image warnings)
 
-### Security
+- **`DifferentialSortinoReward` gradient explosion**: clamped intermediate values to prevent NaN/Inf rewards during training.
+- **PPO scaling issue**: corrected observation and reward scaling so the agent makes meaningful trades instead of converging to zero-action policies.
+- **`suggest_discrete_uniform` deprecation** in `optuna_runner.py`: migrated to `suggest_float(..., step=q)` (Optuna 3.x).
+- **`AgentExplainer` training mode leak**: policy was left in eval mode after saliency analysis if an exception occurred mid-episode; fixed with `try/finally`.
+- **`API Consistency`**: Fixed `execute_limit_order` → `place_limit_order` mismatch in `StockPortfolio`.
+- **Critical execution logic** (`SingleStockTradingEnv`, `StockPortfolio`):
+  - OHLC auto-detection: environment now reads `High`, `Low`, and `Open` columns for realistic simulation.
+  - Limit/stop triggers now check `High` (sells) and `Low` (buys/stops) instead of only `Close`.
+  - Gap handling: stop-loss executes at `Open` when price gaps down past the trigger.
+- **YFinance loader**: fixed `period=timeframe` → `interval=timeframe` parameter causing API errors.
+- **Alpha Vantage free tier**: changed default `outputsize` to `compact`, added 1.2s rate limiting, surfaced `Information` key errors.
+- **Documentation build**: fixed 21 griffe docstring warnings, broken ARCHITECTURE.md links, and social plugin logo warnings.
 
 ### Refactor
-- **Major data source refactoring** - Eliminated code duplication and improved consistency:
-  - **Phase 1 - Critical fixes**:
-    - Fixed YFinanceDataLoader return type violation (now returns empty DataFrame instead of None)
-    - Fixed method signature inconsistency (added Optional to `end` parameter)
-    - Extracted hard-coded constants to class-level variables (AlpacaDataLoader, AlphaVantageDataLoader)
-    - Fixed AlpacaDataLoader protocol violation (connect() now returns None as per protocol)
-  - **Phase 2 - Utility extraction**:
-    - Created 5 utility modules (~1,000 lines of reusable code)
-    - Eliminated date parsing duplication (4 different implementations → 1 utility)
-    - Eliminated symbol handling duplication (3 different implementations → 1 utility)
-    - Eliminated DataFrame normalization duplication (15+ instances → 1 utility)
-    - Added HTTPRequestWrapper with retry logic to FMPDataSource (exponential backoff, rate limit detection)
-  - **Phase 3 - Polish**:
-    - Standardized logging across all loaders (structured logging with kwargs instead of f-strings)
-    - Renamed `YFinanceDataLoader` → `YFinanceDataLoader` for consistency (with backward compatibility alias)
-    - Refactored all loaders to use new utility functions
-    - Updated 12 FMP unit tests to work with new HTTPRequestWrapper
-    - Added 118 comprehensive tests for all utility modules
-  - **Impact**: ~300+ lines of duplicate code eliminated, consistent patterns across all loaders, improved testability
-- **Test directory restructure**: Reorganized `tests/` to mirror `src/quantrl_lab/` structure
-  - `tests/data/` - Data module tests (indicators, sources, utils)
-  - `tests/environments/stock/` - Stock environment tests (env, portfolio, action, reward)
-- **Data source naming convention**: Renamed all data source files with `_loader` suffix for consistency and to prevent package shadowing
-  - `sources/alpaca.py` → `sources/alpaca_loader.py`
-  - `sources/yfinance.py` → `sources/yfinance_loader.py`
-  - `sources/alpha_vantage.py` → `sources/alpha_vantage_loader.py`
-  - `sources/fmp.py` → `sources/fmp_loader.py`
-  - Prevents import conflicts with external packages (e.g., `alpaca-py`, `yfinance`)
-  - Clear naming: `*_loader.py` = our wrapper classes, not external packages
+
+- **Environment architecture** (`src/quantrl_lab/environments/`):
+  - Created `environments/core/` consolidating base protocols (`interfaces.py`), types (`types.py`), portfolio (`portfolio.py`), and config.
+  - Modularized `environments/stock/` into `components/` (portfolio, config) and `strategies/` (actions, observations, rewards).
+  - Renamed `env_single_stock.py` → `single.py`; removed fragmented `environments/base/` and `environments/strategies/`.
+- **Portfolio**: refactored `StockPortfolio` to use typed `Order` dataclasses and `OrderType` enums instead of plain dicts.
+- **Configuration**: introduced `SimulationConfig` (market mechanics) and `RewardConfig` nested within `SingleStockEnvConfig`; tightened reward clipping from `[-5, 5]` → `[-1, 1]`.
+- **Action strategy**: renamed `StandardMarketActionStrategy` → `StandardActionStrategy`.
+- **Data utilities** (`src/quantrl_lab/data/utils/`): extracted date parsing, symbol handling, DataFrame normalization, response validation, and HTTP retry logic into dedicated modules (~1,000 lines, 118 tests), eliminating duplication across all loaders.
+- **Data source naming**: renamed all loader files to `*_loader.py` suffix to prevent import conflicts with upstream packages (`alpaca-py`, `yfinance`).
+- **Alpha research module**: renamed internal files to match project conventions (`base.py`, `strategies.py`); fixed duplicate fields in `AlphaJob` dataclass.
+- **Examples cleanup**: removed broken/redundant `examples/pipelines/auto_indicator_selection.py`; consolidated shared logic into `examples/end_to_end/shared/data_utils.py`.
 
 ## [0.1.0] - 2025-10-16
 

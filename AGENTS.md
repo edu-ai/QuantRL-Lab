@@ -5,79 +5,64 @@ This file provides guidance to agents (i.e., ADAL) when working with code in thi
 ## Essential Commands
 
 ### Package Management
-**This project uses uv for dependency management.**
+
+This project uses **uv** (not Poetry). The lock file is `uv.lock`.
 
 ```bash
-# Install all dependencies
-uv sync
-
-# Install with specific extras
-uv sync --extra dev --extra notebooks
-
-# Activate virtual environment
+uv sync                                    # Core deps only
+uv sync --extra dev --extra notebooks      # With dev/notebook extras
+uv sync --all-extras                       # All optional features
 source .venv/bin/activate
-
-# Add a dependency
-uv add package-name
-
-# Add a dev dependency
-uv add --group dev package-name
 ```
 
+Optional dependency groups: `dev`, `notebooks`, `ml` (torch/transformers/litellm), `tuning`, `viz`, `storage`, `full`.
+
 ### Testing
+
 ```bash
-# Run all tests
-uv run pytest
-
-# Run by module
-uv run pytest tests/data/
-uv run pytest tests/environments/stock/
-
-# Run specific test file
-uv run pytest tests/data/test_indicators.py
-
-# Run with coverage
-uv run pytest --cov=quantrl_lab
-
-# Run tests matching pattern
-uv run pytest -k "test_portfolio"
-
-# Skip integration tests (for CI/CD - no API keys)
-uv run pytest -m "not integration"
-
-# Run only integration tests (requires .env with API keys)
-uv run pytest -m integration
+uv run pytest -m "not integration"         # Unit tests only (CI/CD - no API keys needed)
+uv run pytest -m integration               # Integration tests (requires .env with API keys)
+uv run pytest tests/data/test_indicators.py  # Specific test file
+uv run pytest -k "test_portfolio"          # Tests matching pattern
+uv run pytest --cov=quantrl_lab            # With coverage
 ```
 
 ### Code Quality (Pre-commit Hooks)
-**Pre-commit hooks automatically run on `git commit`** - checking formatting, linting, etc.
+
+Pre-commit hooks run automatically on `git commit`. Run manually with:
 
 ```bash
-# Install hooks (one-time setup)
-pre-commit install
-
-# Run manually on all files
+pre-commit install                         # One-time setup
 pre-commit run --all-files
-
-# Run on specific files (useful for verifying changes before commit)
-pre-commit run --files path/to/file.py
-
-# Skip hooks temporarily
-git commit -m "message" --no-verify
+pre-commit run --files path/to/file.py     # Before committing changes
 ```
 
-**Hooks configuration:** `.pre-commit-config.yaml`
-- Black (formatting, line-length=120, skip string normalization)
-- isort (import sorting, black profile)
-- flake8 (linting, max-line-length=120)
-- docformatter (docstring formatting)
+Hook configuration (`.pre-commit-config.yaml`):
+- **Black**: `--line-length=120 --skip-string-normalization`
+- **isort**: `--profile black`
+- **flake8**: `--max-line-length=120`
+- **docformatter**: Google-style, `--wrap-summaries=72`
 
-**CRITICAL: Always verify pre-commit hooks pass after making changes**
-- For big changes (new files, refactors, API changes): Run `pre-commit run --files <changed_files>` BEFORE committing
-- Common failures: unused imports (flake8), missing docstrings (docformatter), line length (black/flake8)
-- Fix issues immediately - don't rely on the commit hook to catch them
+**CRITICAL: Always verify pre-commit hooks pass after making changes.**
+Common failures: unused imports (flake8), line length violations, missing/malformed docstrings.
+
+### Documentation
+
+```bash
+uv run mkdocs serve    # Local preview
+uv run mkdocs build    # Build (always run before committing API changes)
+```
+
+When renaming modules or changing public APIs, update `docs/api-reference/` to match actual module paths and run `mkdocs build` to verify.
+
+**Standalone guide tabs** (top-level nav, each a self-contained reference):
+- `docs/DATA_SOURCES.md` — data loaders, capability matrix, usage per source
+- `docs/data-processing.md` — `DataProcessor` and `DataPipeline` with all 7 pipeline steps
+- `docs/environments.md` — action/observation/reward spaces, all reward strategies, full env example
+- `docs/experiments.md` — `BacktestRunner`, `ExperimentJob`, `JobGenerator`, `AgentExplainer`, `OptunaRunner`
 
 ### Notebooks
+
 ```bash
 # Install Jupyter kernel (one-time)
 python -m ipykernel install --user --name quantrl-lab --display-name "QuantRL-Lab"
@@ -93,373 +78,255 @@ jupyter notebook
 - `notebooks/hyperparameter_tuning.ipynb` - Optuna tuning
 
 ### Development Gotchas
+
 - **Never commit `.env`** - contains API keys (Alpaca, Alpha Vantage, etc.)
 - **Use `.env.example` as template** for required environment variables
 - **Python 3.10+ required** (see pyproject.toml)
-- **All imports use `src.quantrl_lab.*`** - package installed in editable mode via Poetry
+- **Module imports**: `quantrl_lab.*` (package installed in editable mode)
 
-## Architecture Overview
+## Architecture
 
 ### Core Design Pattern: Strategy Injection
 
-**Critical:** This framework decouples environment logic from policies via **dependency injection of strategies**. The environment accepts 3 pluggable strategy objects at instantiation:
+The environment accepts 3 pluggable strategy objects at instantiation — the central pattern of the entire codebase:
 
 ```python
 env = SingleStockTradingEnv(
     data=df,
     config=config,
-    action_strategy=action_strategy,      # How actions are processed
-    reward_strategy=reward_strategy,      # How rewards are calculated
+    action_strategy=action_strategy,          # How actions are processed
+    reward_strategy=reward_strategy,          # How rewards are calculated
     observation_strategy=observation_strategy  # What the agent observes
 )
 ```
 
-**Why this matters:**
-- Change reward functions WITHOUT touching environment code
-- Swap observation features WITHOUT rewriting state logic
-- Experiment with different action spaces by injecting new strategies
-- Compose complex behaviors from simple, reusable components
+This decouples environment logic from algorithmic choices. Change reward functions without touching environment code. Swap observation features without rewriting state logic.
 
-### Key Integration Points
+**Step execution order** (inside `env.step(action)`):
+1. Store `prev_portfolio_value`
+2. `portfolio.process_open_orders()` — execute pending limit/stop orders
+3. `action_strategy.handle_action(env, action)` — decode & execute new order
+4. Advance `current_step`, check `terminated`/`truncated`
+5. `reward_strategy.calculate_reward(env)` — compute reward
+6. Clip reward to `reward_clip_range`
+7. `reward_strategy.on_step_end(env)` — stateful hook
+8. `observation_strategy.build_observation(env)` — compute state
 
-**1. Data Flow: Source → Processor → Environment**
+### Data Flow
 
 ```
 DataLoader (Alpaca/YFinance/AlphaVantage/FMP)
-  ↓ fetch_data()
-DataFrame with OHLCV
-  ↓ DataProcessor.apply_indicators()
-DataFrame with technical indicators
-  ↓ pass to env
-SingleStockTradingEnv
-  ↓ step() delegates to strategies
-Action/Observation/Reward strategies
+  → get_historical_ohlcv_data() → DataFrame with OHLCV
+  → DataProcessor.data_processing_pipeline() → DataFrame with indicators
+  → SingleStockTradingEnv → step() delegates to strategies
+  → RL Agent (PPO/SAC/A2C via stable-baselines3)
 ```
 
-**2. Protocol-Based Data Sources**
+### Key Architectural Patterns
 
-Data sources inherit `DataSource` base class and implement capability protocols:
-- `HistoricalDataCapable` - historical OHLCV
-- `LiveDataCapable` - real-time quotes
-- `NewsDataCapable` - news sentiment
-- `StreamingCapable` - websocket streaming
-- `FundamentalDataCapable` - fundamental/financial data
-- `MacroDataCapable` - macroeconomic indicators
-- `AnalystDataCapable` - analyst grades/ratings
+**1. Protocol-Based Data Sources** (`src/quantrl_lab/data/interface.py`)
+Data sources implement capability protocols for runtime feature detection:
+- `HistoricalDataCapable`, `LiveDataCapable`, `NewsDataCapable`, `StreamingCapable`, `FundamentalDataCapable`, `MacroDataCapable`, `AnalystDataCapable`
+- Check capabilities: `loader.supported_features()` → `{'historical': True, 'live': False, ...}`
 
-**Example:**
-```python
-# Check capabilities at runtime
-if isinstance(loader, LiveDataCapable):
-    quote = loader.get_latest_quote(symbol)
-```
-
-See `src/quantrl_lab/data/interface.py` for protocol definitions.
-
-**3. Indicator Registry Pattern**
-
+**2. Indicator Registry** (`src/quantrl_lab/data/indicators/registry.py`)
 Technical indicators are auto-registered via decorator:
-
 ```python
 @IndicatorRegistry.register('RSI')
-def rsi(df, window=14):
-    # calculation
-    return df
+def rsi(df: pd.DataFrame, window=14) -> pd.DataFrame: ...
 
-# Apply dynamically
 df = IndicatorRegistry.apply('RSI', df, window=14)
-
-# List all available
 IndicatorRegistry.list_all()  # ['SMA', 'EMA', 'RSI', 'MACD', ...]
 ```
 
-**Key file:** `src/quantrl_lab/data/indicators/registry.py`
-
-**4. BacktestRunner Workflow**
-
+**3. Composite Reward Pattern** (`src/quantrl_lab/environments/stock/strategies/rewards/composite.py`)
+Combines reward components with configurable weights:
 ```python
-# 1. Create env config factory
-env_config = BacktestRunner.create_env_config_factory(
-    train_data=train_df,
-    test_data=test_df,
-    action_strategy=action_strategy,
-    reward_strategy=reward_strategy,
-    observation_strategy=observation_strategy,
-    # ... other params
-)
-
-# 2. Run single experiment
-runner = BacktestRunner(verbose=1)
-results = runner.run_single_experiment(
-    PPO,  # Algorithm class from stable-baselines3
-    env_config,
-    total_timesteps=50000,
-    num_eval_episodes=3
-)
-
-# 3. Inspect results
-BacktestRunner.inspect_single_experiment(results)
-
-# 4. Or run comprehensive sweep
-results = runner.run_comprehensive_backtest(
-    algorithms=[PPO, SAC, A2C],
-    env_configs=configs,
-    presets=["conservative", "explorative"],
-    total_timesteps=50000
+reward_strategy = CompositeReward(
+    strategies=[PortfolioValueChangeReward(), DifferentialSortinoReward(), InvalidActionPenalty()],
+    weights=[0.5, 0.3, 0.2],
+    normalize_weights=True,  # default; auto-normalises weights to sum to 1
+    auto_scale=False,        # if True, z-scores each component before weighting
 )
 ```
 
-**Entry point:** `src/quantrl_lab/experiments/backtesting/runner.py`
+**4. Data Pipeline** (`src/quantrl_lab/data/processing/pipeline.py`)
+Builder pattern for composable data transformations via `DataPipeline`.
 
-### Project Structure
+### Source Structure
 
 ```
 src/quantrl_lab/
-├── environments/              # Gymnasium trading environments (renamed from custom_envs)
-│   ├── base/                 # Base classes (TradingEnv, Portfolio, Config) - renamed from core
-│   ├── strategies/           # Shared strategy interfaces (NEW - extracted from stock/)
-│   │   ├── actions.py       # BaseActionStrategy
-│   │   ├── observations.py  # BaseObservationStrategy
-│   │   └── rewards.py       # BaseRewardStrategy
-│   │
-│   └── stock/               # Single-stock implementation
-│       ├── env_single_stock.py         # Main environment
-│       ├── stock_portfolio.py          # Portfolio state management
-│       └── strategies/      # Stock-specific strategy implementations
-│           ├── actions/     # Action space definitions
-│           ├── observations/  # State representation
-│           └── rewards/     # Reward functions
-│
-├── data/                     # Data acquisition & processing
-│   ├── sources/             # Data source loaders
-│   │   ├── alpaca_loader.py      # Alpaca (Historical, Live, Streaming, News)
-│   │   ├── yfinance_loader.py    # Yahoo Finance (Historical, Fundamentals)
-│   │   ├── alpha_vantage_loader.py  # Alpha Vantage (Historical, Fundamentals, Macro, News)
-│   │   └── fmp_loader.py         # FMP (Historical, Analyst data)
-│   │
-│   ├── utils/               # Data handling utilities (NEW - extracted from loaders)
-│   │   ├── date_parsing.py          # Date normalization & validation
-│   │   ├── symbol_handling.py       # Symbol validation
-│   │   ├── dataframe_normalization.py  # OHLCV standardization
-│   │   ├── response_validation.py   # API response validation
-│   │   └── request_utils.py         # HTTP wrapper with retry logic
-│   │
-│   ├── processors/          # Data transformation (NEW - separated from sources)
-│   │   ├── processor.py    # DataProcessor (was data_processor.py)
-│   │   └── mappings/       # API response normalization
-│   │
-│   └── indicators/          # Technical indicator registry + implementations
-│
-├── experiments/            # Offline experimentation (NEW top-level grouping)
-│   ├── backtesting/        # Training & evaluation orchestration (moved from top-level)
-│   │   ├── runner.py       # Main entry point
-│   │   ├── training.py     # Model training logic
-│   │   ├── evaluation.py   # Performance metrics
-│   │   └── config/         # Algorithm configs & presets
-│   │
-│   ├── feature_engineering/  # Vectorized backtesting (renamed from feature_selection/)
-│   │   ├── analyzer.py     # Indicator analysis
-│   │   └── vectorized/     # Vectorized strategy implementations
-│   │
-│   └── tuning/             # Optuna hyperparameter optimization (moved from top-level)
-│
-├── experiments/            # Offline experimentation (NEW top-level grouping)
-│   ├── backtesting/        # Training & evaluation orchestration (moved from top-level)
-│   │   ├── runner.py       # Main entry point
-│   │   ├── training.py     # Model training logic
-│   │   ├── evaluation.py   # Performance metrics
-│   │   └── config/         # Algorithm configs & presets
-│   │
-│   ├── feature_engineering/  # Vectorized backtesting (renamed from feature_selection/)
-│   │   ├── analyzer.py     # Indicator analysis
-│   │   └── vectorized/     # Vectorized strategy implementations
-│   │
-│   ├── tuning/             # Optuna hyperparameter optimization (moved from top-level)
-│   │
-│   └── screening/          # LLM-based hedge pair screening (for pair discovery)
-│       ├── llm_hedge_screener.py
-│       ├── response_schemas.py
-│       ├── data_models.py
-│       └── prompt.py
-│
-├── deployment/             # Production workflows (NEW top-level grouping)
-│   └── trading/           # Live trading with Alpaca (moved from top-level)
-│
-└── utils/                 # Shared utilities
+├── environments/
+│   ├── core/              # Base classes: interfaces.py, config.py, portfolio.py, types.py
+│   └── stock/
+│       ├── single.py      # SingleStockTradingEnv (main environment)
+│       ├── multi.py       # Multi-stock environment
+│       ├── components/    # Portfolio and config components
+│       └── strategies/
+│           ├── actions/   # standard.py, time_in_force.py
+│           ├── observations/  # feature_aware.py, etc.
+│           └── rewards/   # portfolio_value, sharpe, sortino, drawdown, turnover,
+│                          # expiration, invalid_action, boredom, execution_bonus, composite
+├── data/
+│   ├── sources/           # alpaca_loader, yfinance_loader, alpha_vantage_loader, fmp_loader
+│   ├── indicators/        # registry.py, technical.py
+│   ├── processing/        # pipeline.py, processor.py
+│   │   └── steps/         # cleaning/, features/, alternative/
+│   ├── utils/             # date_parsing, symbol_handling, dataframe_normalization,
+│   │                      # response_validation, request_utils, async_request_utils
+│   ├── partitioning/      # ratio.py, date_range.py
+│   └── interface.py       # Protocol definitions
+├── experiments/
+│   ├── backtesting/       # runner.py (BacktestRunner), training.py, evaluation.py,
+│   │                      # builder.py, core.py, metrics.py, explainer.py, analysis.py
+│   │   └── config/        # environment_config.py
+│   └── tuning/            # optuna_runner.py
+├── alpha_research/        # registry.py, models.py, analysis.py, metrics.py, alpha_strategies.py
+├── screening/             # llm_hedge_screener.py, response_schemas.py, data_models.py, prompt.py
+├── deployment/trading/    # alpaca_trader.py (live trading)
+└── utils/                 # math.py
 
 tests/                     # Pytest test suite (mirrors src/ structure)
-│   ├── data/             # Data module tests
-│   │   ├── test_indicators.py
-│   │   ├── test_data_sources.py
-│   │   └── test_data_sources_integration.py
-│   └── environments/stock/  # Environment tests
-│
-notebooks/                 # Usage examples
+├── conftest.py
+├── data/
+│   ├── sources/           # test_data_sources.py, test_data_sources_integration.py, test_async_loaders.py
+│   ├── processing/steps/  # test_analyst.py, etc.
+│   ├── utils/             # test_async_request_utils.py
+│   └── test_indicators.py
+├── environments/stock/
+│   ├── strategies/rewards/  # test_boredom.py
+│   ├── test_env.py, test_portfolio.py, test_action.py, test_reward.py
+│   └── test_time_in_force_action.py
+├── experiments/
+│   ├── backtesting/       # test_builder.py, test_metrics.py, test_runner.py
+│   └── tuning/            # test_optuna_runner.py
+└── alpha_research/        # test_alpha_research.py
+
+examples/end_to_end/       # End-to-end training scripts
+├── shared/data_utils.py   # init_data_sources(), select_alpha_indicators(), process_symbol()
+├── train_single_symbol.py, train_single_symbol_sac.py, train_single_symbol_a2c.py
+├── train_multi_symbol.py, train_multi_symbol_sac.py, train_multi_symbol_a2c.py
+└── tune_single_symbol.py
+
+notebooks/                 # Usage example notebooks
 ```
 
 ## Common Workflows
 
-### Adding a New Technical Indicator
+### BacktestRunner Workflow
 
-1. Add function to `src/quantrl_lab/data/indicators/technical.py`
-2. Decorate with `@IndicatorRegistry.register('INDICATOR_NAME')`
-3. Function signature: `def indicator_name(df: pd.DataFrame, **kwargs) -> pd.DataFrame`
-4. It's auto-discoverable via `IndicatorRegistry.list_all()`
+```python
+# Preferred: fluent builder
+from quantrl_lab.experiments.backtesting.builder import BacktestEnvironmentBuilder
+env_config = (
+    BacktestEnvironmentBuilder()
+    .with_data(train_data=train_df, test_data=test_df)
+    .with_strategies(action=..., reward=..., observation=...)
+    .with_env_params(initial_balance=100_000, window_size=20)
+    .build()
+)
 
-### Creating a Custom Reward Strategy
+# Single job
+job = ExperimentJob(algorithm_class=PPO, env_config=env_config, total_timesteps=50000)
+runner = BacktestRunner(verbose=True)
+result = runner.run_job(job)
+BacktestRunner.inspect_result(result)
 
-1. Inherit `BaseRewardStrategy` from `src/quantrl_lab/environments/strategies/rewards.py`
-2. Implement `calculate_reward(self) -> float` (reads from `self.env`)
-3. Optionally implement `reset()` for episode initialization
-4. Inject into environment via `reward_strategy` parameter
+# Batch / grid
+jobs = JobGenerator.generate_grid(algorithms=[PPO, SAC], env_configs={...}, total_timesteps=50000)
+results = runner.run_batch(jobs)
+BacktestRunner.inspect_batch(results)
+```
 
-**Example:** See `src/quantrl_lab/environments/stock/strategies/rewards/trend_following_reward.py`
+`create_env_config_factory` still exists but is **DEPRECATED** — use `BacktestEnvironmentBuilder` instead.
+
+### Adding New Components
+
+**New technical indicator**: Add to `src/quantrl_lab/data/indicators/technical.py` with `@IndicatorRegistry.register('NAME')` decorator. Signature: `def name(df: pd.DataFrame, **kwargs) -> pd.DataFrame`.
+
+**New reward strategy**: Inherit `BaseRewardStrategy` from `src/quantrl_lab/environments/core/interfaces.py`. Implement `calculate_reward(self, env: TradingEnvProtocol) -> float`. Optionally implement `on_step_end(env)` for state updates.
+
+**New action strategy**: Inherit `BaseActionStrategy`. Implement `define_action_space()` and `handle_action(env_self, action)`.
+
+**New observation strategy**: Inherit `BaseObservationStrategy`. Implement `define_observation_space(env)`, `build_observation(env)`, and `get_feature_names(env)`.
 
 ### Running Experiments
 
 **Typical flow:**
 1. Load data with DataLoader
-2. Process features with DataProcessor
+2. Process features with `DataProcessor.data_processing_pipeline()`
 3. Define strategies (action/observation/reward)
-4. Create env config factory
-5. Run BacktestRunner
-6. Analyze results
+4. Build env config via `BacktestEnvironmentBuilder`
+5. Create `ExperimentJob` and run via `BacktestRunner`
+6. Analyze results with `inspect_result()` / `inspect_batch()`
 
-**See:** `notebooks/backtesting_example.ipynb` for complete example
+**See:** `examples/end_to_end/` for complete training scripts, `notebooks/backtesting_example.ipynb` for notebook workflow.
 
-### Updating Documentation
+### Reward Shaping Guidance
 
-**When making API changes, ALWAYS update documentation:**
+- Use `PortfolioValueChangeReward` as the primary signal with a minimal `TurnoverPenaltyReward`.
+- Heavy penalties (Sortino, drawdown) cause "do nothing" convergence in short training runs.
+- Available reward strategies: portfolio_value, sharpe, sortino, drawdown, turnover, expiration, invalid_action, boredom, execution_bonus, composite.
 
-1. **API endpoint changes** - module renames, class moves, new public APIs
-2. **Update MkDocs references** in `docs/api-reference/` to match actual module paths
-3. **Verify build** - run `mkdocs build` to catch errors before committing
+## Code Conventions
 
-**Common doc files to check:**
-- `docs/api-reference/data-sources.md` - data loader modules
-- `docs/api-reference/strategies.md` - strategy interfaces and implementations
-- `docs/api-reference/environments.md` - environment classes
+- **Line length**: 120 characters; single quotes (skip string normalization)
+- **Docstrings**: Google-style, required on all public APIs
+- **Type hints**: Required everywhere; use `Protocol` for interfaces
+- **Python**: 3.10+ required
 
-**Example:** If you rename `alpaca.py` → `alpaca_loader.py`, update docs from:
+Google-style docstring format:
+```python
+def fn(param1: str, param2: int = 10) -> pd.DataFrame:
+    """
+    Brief description.
+
+    Args:
+        param1 (str): Description.
+        param2 (int, optional): Description. Defaults to 10.
+
+    Returns:
+        pd.DataFrame: Description.
+
+    Raises:
+        ValueError: When something is invalid.
+    """
 ```
-::: quantrl_lab.data.sources.alpaca
-```
-to:
-```
-::: quantrl_lab.data.sources.alpaca_loader
-```
-
-**Always run `mkdocs build` before committing to ensure docs build without errors.**
 
 ## Non-Obvious Behaviors
 
-### Environment State Management
-
-- **`current_step` is 0-indexed** - points to current row in data array
-- **`window_size` lookback** - observations include past N steps
-- **Portfolio resets to initial_balance** on `reset()`, but keeps transaction history for analysis
-- **Price column auto-detection** - searches for 'close', 'Close', 'adj_close', or 4th column if DataFrame
-
-### Strategy Execution Order (per step)
-
-```python
-# Inside env.step(action):
-1. action_strategy.process_action(action)  # Validate & execute trades
-2. portfolio.update_holdings()             # Update positions
-3. observation = observation_strategy.build_observation()  # Get state
-4. reward = reward_strategy.calculate_reward()  # Calculate reward
-5. done = check_terminal_conditions()      # Episode termination
-```
-
-### WeightedCompositeReward
-
-**Combines multiple reward components with configurable weights:**
-
-```python
-reward_strategy = WeightedCompositeReward(
-    components=[
-        PortfolioValueChangeReward(),
-        TrendFollowingReward(),
-        InvalidActionPenalty(),
-    ],
-    weights=[0.5, 0.3, 0.2]  # Must sum to 1.0
-)
-```
-
-**Presets available:** "conservative", "explorative", "balanced", "risk_managed"
-(see `src/quantrl_lab/experiments/backtesting/config/reward_presets.py`)
+- **`current_step` advances before reward**: reward sees the price *after* the action, not before
+- **`action_type` set by `handle_action()`**: reward strategies read `env.action_type` and `env.decoded_action_info` which are set just before `calculate_reward()` is called
+- **Portfolio resets on `reset()`** but running stats in stateful reward strategies (Sharpe, Sortino) do **not** reset between episodes by default — call `reward_strategy.reset()` manually if needed
+- **Price column auto-detected**: searches 'close', 'Close', 'adj_close', or 4th column; override with `price_column=` arg
+- **`window_size` is padding only**: observations at the start of an episode are padded by repeating the first row, not by slicing earlier data
+- **`CompositeReward` weights not auto-normalised** unless `normalize_weights=True` (default); `auto_scale` running stats persist across episodes
+- **`n_envs > 1`** only affects training (via `make_vec_env`); evaluation always uses a single env
+- **Limit/stop orders with `OrderTIF.TTL`** expire after `order_expiration_steps` (default 5); GTC orders persist indefinitely
 
 ### Data Source Capabilities
 
-**Not all data sources support all features:**
 - **Alpaca**: Historical, Live, Streaming, News (requires API keys)
 - **YFinance**: Historical, Fundamentals (free, no key needed)
 - **AlphaVantage**: Historical, Fundamentals, Macroeconomic, News (requires API key)
 - **FMP**: Historical (daily + intraday), Analyst data (grades/ratings) (requires API key)
 
-**Alpha Vantage Free Tier Limitations:**
-- 25 requests/day, 1 request/second burst limit
-- `outputsize=full` (20+ years of data) requires premium
-- Intraday data (1min, 5min, etc.) requires premium
-- The loader auto-handles rate limiting and defaults to `compact` (last 100 days)
+**Alpha Vantage free tier**: 25 req/day, 1 req/sec; `outputsize=full` and intraday require premium; loader auto-handles rate limiting.
 
-**FMP Limitations:**
-- Single symbol per request (multi-symbol support logs warning)
-- Intraday timeframes: 5min, 15min, 30min, 1hour, 4hour
-
-**Check capabilities before use:**
-```python
-features = loader.supported_features()
-# Returns: {'historical': True, 'live': False, 'analyst_data': True, ...}
-```
+**FMP**: single symbol per request; intraday timeframes: 5min, 15min, 30min, 1hour, 4hour.
 
 ## Environment Variables
 
-**Required in `.env` (copy from `.env.example`):**
+Copy `.env.example` to `.env`:
 
 ```bash
-# Alpaca Trading API (for data & live trading)
-ALPACA_API_KEY=your_key
-ALPACA_SECRET_KEY=your_secret
-ALPACA_BASE_URL=https://paper-api.alpaca.markets  # Paper trading
-
-# Alpha Vantage (for fundamentals, macro data, news)
-# Free tier: 25 req/day, intraday & outputsize=full require premium
-ALPHA_VANTAGE_API_KEY=your_key
-
-# Financial Modeling Prep (for intraday data, analyst grades/ratings)
-FMP_API_KEY=your_key
-
-# Optional: LLM APIs for hedge screener
-OPENAI_API_KEY=your_key
-```
-
-## Testing Strategy
-
-**Test structure mirrors source code:**
-```
-tests/
-├── conftest.py                              # Shared fixtures
-├── data/
-│   ├── test_indicators.py                   # IndicatorRegistry & technical indicators
-│   ├── test_data_sources.py                 # Unit tests with mocked APIs
-│   └── test_data_sources_integration.py     # Integration tests with real APIs
-└── environments/stock/
-    ├── test_env.py                          # Environment step logic, terminal conditions
-    ├── test_portfolio.py                    # Position tracking, cash flow
-    ├── test_action.py                       # Action strategy validation
-    └── test_reward.py                       # Reward calculation correctness
-```
-
-**Test categories:**
-- **Unit tests** - Fast, mocked, run in CI/CD
-- **Integration tests** - Real API calls, require `.env`, marked with `@pytest.mark.integration`
-
-**Run before commits:**
-```bash
-pre-commit run --all-files       # Formatting + linting
-uv run pytest -m "not integration"  # Unit tests only
-uv run pytest                    # All tests (if API keys available)
+ALPACA_API_KEY=...          # Alpaca (Historical, Live, Streaming, News)
+ALPACA_SECRET_KEY=...
+ALPACA_BASE_URL=https://paper-api.alpaca.markets
+ALPHA_VANTAGE_API_KEY=...   # Fundamentals, Macroeconomic, News
+FMP_API_KEY=...             # Intraday data, Analyst grades/ratings
+OPENAI_API_KEY=...          # Optional: LLM hedge screener
 ```
 
 ## Key Files to Check First
@@ -468,14 +335,15 @@ uv run pytest                    # All tests (if API keys available)
 - Action spaces → `src/quantrl_lab/environments/stock/strategies/actions/`
 - Reward logic → `src/quantrl_lab/environments/stock/strategies/rewards/`
 - Data loading → `src/quantrl_lab/data/sources/`
-- Feature engineering → `src/quantrl_lab/data/processors/processor.py`
+- Feature engineering → `src/quantrl_lab/data/processing/processor.py`
 - Backtesting flow → `src/quantrl_lab/experiments/backtesting/runner.py`
+- Alpha research → `src/quantrl_lab/alpha_research/`
 
 **When debugging:**
-- Check `StockPortfolio` state in `src/quantrl_lab/environments/stock/stock_portfolio.py`
+- Check `StockPortfolio` state in `src/quantrl_lab/environments/stock/components/`
 - Verify data array shape and `current_step` index
 - Confirm strategy injection in environment `__init__`
-- Review `BacktestRunner.inspect_single_experiment()` output
+- Review `BacktestRunner.inspect_result()` output
 
 ## External Dependencies
 
@@ -494,11 +362,10 @@ uv run pytest                    # All tests (if API keys available)
 ## Future Improvements
 
 ### Long-term Improvements (2-3 days each)
-1. **Async Support**: Add async variants to `HistoricalDataCapable` and `DataSourceRegistry` for concurrent data fetching (5-10x speedup for multi-symbol batches).
-2. **DataValidator**: Build a dedicated `DataValidator` class for systematic quality checks (nulls, price relationships, duplicates).
-3. **FillNA Strategy**: Implement `FillStrategy` protocol to replace hard-coded fillna logic in `SentimentFeatureGenerator`.
+1. **DataValidator**: Build a dedicated `DataValidator` class for systematic quality checks (nulls, price relationships, duplicates).
+2. **FillNA Strategy**: Implement `FillStrategy` protocol to replace hard-coded fillna logic in `SentimentFeatureGenerator`.
+3. **Caching**: Implement `CachedDataSource` wrapper to reduce API calls.
 
 ### Ongoing Improvements
 - **Protocol Consistency**: Standardize on pure Protocol-based design (structural typing) vs ABCs.
-- **Caching**: Implement `CachedDataSource` wrapper to reduce API calls.
 - **Testing**: Add pytest fixtures for common data shapes and improve dependency injection.
