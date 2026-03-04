@@ -27,6 +27,7 @@ class Order:
     shares: int
     price: float
     placed_at: int
+    reference_price: float = 0.0  # Market price when the order was decided
     cost_reserved: float = 0.0  # Only for limit buy orders
     tif: OrderTIF = OrderTIF.GTC
 
@@ -290,6 +291,7 @@ class StockPortfolio(Portfolio):
                     shares=shares_to_buy,
                     price=limit_price,
                     placed_at=current_step,
+                    reference_price=current_price,
                     cost_reserved=cost_reserved,
                     tif=tif,
                 )
@@ -339,7 +341,12 @@ class StockPortfolio(Portfolio):
                 # --- Handle GTC / TTL (Pending) ---
                 self.units_held -= shares_to_sell
                 order = Order(
-                    type=OrderType.LIMIT_SELL, shares=shares_to_sell, price=limit_price, placed_at=current_step, tif=tif
+                    type=OrderType.LIMIT_SELL,
+                    shares=shares_to_sell,
+                    price=limit_price,
+                    placed_at=current_step,
+                    reference_price=current_price,
+                    tif=tif,
                 )
                 self.pending_orders.append(order)
 
@@ -511,6 +518,7 @@ class StockPortfolio(Portfolio):
                         "type": "limit_buy_executed",
                         "shares": order.shares,
                         "price": execution_price,
+                        "reference_price": order.reference_price,
                         "cost": actual_cost,
                     }
                 )
@@ -534,6 +542,7 @@ class StockPortfolio(Portfolio):
                         "type": "limit_sell_executed",
                         "shares": order.shares,
                         "price": execution_price,
+                        "reference_price": order.reference_price,
                         "revenue": revenue,
                     }
                 )

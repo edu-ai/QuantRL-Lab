@@ -51,10 +51,8 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
             "ADX",
             "WILLR",
             "CCI",
-            "BOP",
-            "CMO",
-            "AROON",
-            "ULTOSC",
+            "ATR",  # Moved ATR here to handle it specially (ATR/Price)
+            "MACD",  # Price-difference based, normalise by Close to make it scale-free
             "sentiment",
             "grade",
             "rating",
@@ -66,6 +64,10 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
             "BB_bandwidth",
             "BB_percent",
             "%B",
+            "OBV",  # OBV is technically unbounded but we will Z-score it or similar
+            "sector",
+            "industry",
+            "change",
         }
 
         # Cache for column indices
@@ -103,10 +105,6 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
                 if kw.upper() in col_upper:
                     is_stationary = True
                     break
-
-            # Special case: BB bands themselves are price-like, but bandwidth/%B are stationary
-            # The keyword check above handles bandwidth/%B, but let's be explicit about exclusion
-            # if needed. For now, the keyword set covers the stationary ones.
 
             if is_stationary:
                 self._stationary_cols_idx.append(i)
@@ -154,20 +152,45 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
             normalized_window[:, self._price_cols_idx] = norm_prices
 
         # B. Normalize Stationary columns
-        # Formula: Raw value (or scaled / 100 for indicators)
         if self._stationary_cols_idx:
             stationary_subset = raw_window[:, self._stationary_cols_idx]
 
-            if self.normalize_stationary:
-                # Heuristic scaling for 0-100 indicators
-                if hasattr(env, "original_columns"):
-                    for local_idx, global_idx in enumerate(self._stationary_cols_idx):
-                        col_name = env.original_columns[global_idx].upper()
-                        # Scale 0-100 indicators to 0-1
-                        if any(x in col_name for x in ["RSI", "STOCH", "MFI", "ADX", "WILLR", "CCI"]):
-                            # WILLR is -100 to 0, others 0 to 100. CCI is unbounded.
-                            # Simple division by 100 helps keep magnitude similar to normalized prices (~1.0)
-                            stationary_subset[:, local_idx] = stationary_subset[:, local_idx] / 100.0
+            if self.normalize_stationary and hasattr(env, "original_columns"):
+                price_col_idx = env.price_column_index
+                # We need close prices for ATR normalization
+                close_prices = raw_window[:, price_col_idx]
+
+                for local_idx, global_idx in enumerate(self._stationary_cols_idx):
+                    col_name = env.original_columns[global_idx].upper()
+
+                    # 1. Oscillators (0-100) -> Scale to 0-1
+                    if any(x in col_name for x in ["RSI", "STOCH", "MFI", "ADX"]):
+                        stationary_subset[:, local_idx] = stationary_subset[:, local_idx] / 100.0
+
+                    # 2. Williams %R (-100 to 0) -> Scale to 0-1
+                    elif "WILLR" in col_name:
+                        stationary_subset[:, local_idx] = (stationary_subset[:, local_idx] + 100.0) / 100.0
+
+                    # 3. CCI (Unbounded, typ +/- 200) -> Scale roughly to -1 to 1
+                    elif "CCI" in col_name:
+                        stationary_subset[:, local_idx] = stationary_subset[:, local_idx] / 200.0
+
+                    # 4. ATR (Price-based volatility) -> Normalize by Close Price
+                    elif "ATR" in col_name:
+                        # ATR / Close = Percentage Volatility
+                        stationary_subset[:, local_idx] = stationary_subset[:, local_idx] / (close_prices + 1e-9)
+
+                    # 5. MACD (EMA difference, price-denominated) -> Normalize by Close Price
+                    elif "MACD" in col_name:
+                        # MACD / Close = scale-free momentum signal
+                        stationary_subset[:, local_idx] = stationary_subset[:, local_idx] / (close_prices + 1e-9)
+
+                    # 6. OBV (Unbounded Volume) -> Z-Score locally
+                    elif "OBV" in col_name:
+                        vals = stationary_subset[:, local_idx]
+                        mean = np.mean(vals)
+                        std = np.std(vals) + 1e-9
+                        stationary_subset[:, local_idx] = (vals - mean) / std
 
             normalized_window[:, self._stationary_cols_idx] = stationary_subset
 
@@ -240,3 +263,43 @@ class FeatureAwareObservationStrategy(BaseObservationStrategy):
         )
 
         return np.concatenate((normalized_window.flatten(), portfolio_features))
+
+    def get_feature_names(self, env: TradingEnvProtocol) -> List[str]:
+        """
+        Generates the ordered list of feature names corresponding to the
+        observation vector.
+
+        The observation space consists of:
+        1. The flattened market window (oldest step to newest step)
+        2. The portfolio & engineering features
+        """
+        feature_names = []
+
+        # 1. Market Window Features
+        # The window is flattened row by row, from start_idx to end_idx.
+        # So we iterate through the window steps: t-(window_size-1) up to t
+        original_cols = getattr(env, "original_columns", [f"Feature_{i}" for i in range(env.num_features)])
+
+        for step_idx in range(env.window_size):
+            lag = env.window_size - 1 - step_idx
+            time_label = "t" if lag == 0 else f"t-{lag}"
+
+            for col in original_cols:
+                feature_names.append(f"{col}_{time_label}")
+
+        # 2. Portfolio Features (Must match the exact order in build_observation)
+        portfolio_features = [
+            "portfolio_balance_ratio",
+            "position_size_ratio",
+            "unrealized_pl_pct",
+            "price_pos_in_range",
+            "recent_volatility",
+            "recent_trend",
+            "risk_reward_ratio",
+            "dist_to_stop_loss",
+            "dist_to_take_profit",
+        ]
+
+        feature_names.extend(portfolio_features)
+
+        return feature_names

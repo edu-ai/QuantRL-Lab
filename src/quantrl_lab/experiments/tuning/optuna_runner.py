@@ -1,11 +1,13 @@
 import os
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 import optuna
 from rich.console import Console
 from rich.panel import Panel
 from rich.traceback import install as install_rich_traceback
 
+from ..backtesting.config.environment_config import BacktestEnvironmentConfig
+from ..backtesting.core import ExperimentJob
 from ..backtesting.runner import BacktestRunner
 
 # Install rich traceback handler
@@ -46,7 +48,7 @@ class OptunaRunner:
     def create_objective_function(
         self,
         algo_class,
-        env_config: Dict[str, Any],
+        env_config: Union[Dict[str, Any], BacktestEnvironmentConfig],
         search_space: Dict[str, Any],
         fixed_params: Optional[Dict[str, Any]] = None,
         total_timesteps: int = 50000,
@@ -58,17 +60,25 @@ class OptunaRunner:
 
         Args:
             algo_class: RL algorithm class (PPO, SAC, A2C, etc.)
-            env_config: Environment configuration
+            env_config: Environment configuration object or dictionary
             search_space: Dictionary defining the hyperparameter search space
             fixed_params: Fixed parameters that won't be optimized
             total_timesteps: Number of training timesteps
             num_eval_episodes: Number of evaluation episodes
-            optimization_metric: Metric to optimize (default: test_avg_return_pct)
+            optimization_metric: Metric to optimize (default: test_avg_return_pct).
+                                 Can use any metric from MetricsCalculator (e.g., 'test_avg_sharpe_ratio').
 
         Returns:
-            Objective function for Optuna
+            Callable: The objective function for Optuna.
         """
         fixed_params = fixed_params or {}
+
+        # Normalize env_config
+        if isinstance(env_config, dict):
+            # Legacy support
+            env_config_obj = BacktestEnvironmentConfig.from_dict(env_config)
+        else:
+            env_config_obj = env_config
 
         def objective(trial: optuna.Trial) -> float:
             try:
@@ -76,27 +86,28 @@ class OptunaRunner:
                 params = self._sample_hyperparameters(trial, search_space)
                 params.update(fixed_params)
 
-                # Create the algorithm-specific configuration
-                if hasattr(self.runner, "create_custom_config"):
-                    config = self.runner.create_custom_config(algo_class, **params)
-                else:
-                    config = params.copy()
-
                 console.print(
                     f"[bold cyan]Starting Trial {trial.number}[/bold cyan] with params: [yellow]{params}[/yellow]"
                 )
 
-                # Run the backtesting experiment
-                results = self.runner.run_single_experiment(
-                    algo_class=algo_class,
-                    env_config=env_config,
-                    config=config,
+                # Create Job
+                job = ExperimentJob(
+                    algorithm_class=algo_class,
+                    env_config=env_config_obj,
+                    algorithm_config=params,
                     total_timesteps=total_timesteps,
                     num_eval_episodes=num_eval_episodes,
+                    tags={"trial": str(trial.number), "tuner": "optuna"},
                 )
 
+                # Run the backtesting experiment
+                result = self.runner.run_job(job)
+
+                if result.status == "failed":
+                    raise RuntimeError(f"Job failed: {result.error}")
+
                 # Extract the target value for Optuna to optimize
-                target_value = results.get(optimization_metric)
+                target_value = result.metrics.get(optimization_metric)
                 if target_value is None:
                     console.print(
                         f"[bold yellow]⚠️ Optimization metric '[/bold yellow][cyan]{optimization_metric}[/cyan]"
@@ -138,8 +149,8 @@ class OptunaRunner:
             elif param_type == "categorical":
                 params[param_name] = trial.suggest_categorical(param_name, param_config["choices"])
             elif param_type == "discrete_uniform":
-                params[param_name] = trial.suggest_discrete_uniform(
-                    param_name, param_config["low"], param_config["high"], param_config["q"]
+                params[param_name] = trial.suggest_float(
+                    param_name, param_config["low"], param_config["high"], step=param_config["q"]
                 )
             else:
                 console.print(
@@ -194,6 +205,13 @@ class OptunaRunner:
         console.print()
 
         try:
+            if n_jobs > 1 and self.storage_url.startswith("sqlite"):
+                console.print(
+                    "[bold yellow]⚠️ n_jobs > 1 is not safe with SQLite storage "
+                    "— falling back to n_jobs=1.[/bold yellow]"
+                )
+                n_jobs = 1
+
             study.optimize(
                 objective_func,
                 n_trials=n_trials,
@@ -202,9 +220,13 @@ class OptunaRunner:
             )
 
             console.rule("[bold green]Optimization finished successfully[/bold green]")
-            console.print(f"[bold blue]Best trial value:[/bold blue] [cyan]{study.best_value:.4f}[/cyan]")
-            console.print("[bold blue]Best params:[/bold blue]")
-            console.print(study.best_params, style="yellow")
+            completed = [t for t in study.trials if t.value is not None]
+            if completed:
+                console.print(f"[bold blue]Best trial value:[/bold blue] [cyan]{study.best_value:.4f}[/cyan]")
+                console.print("[bold blue]Best params:[/bold blue]")
+                console.print(study.best_params, style="yellow")
+            else:
+                console.print("[bold yellow]⚠️ No trials completed successfully — all were pruned.[/bold yellow]")
 
         except Exception as e:
             console.print(f"[bold red]❌ Optimization loop failed with an exception:[/bold red] {str(e)}", style="red")

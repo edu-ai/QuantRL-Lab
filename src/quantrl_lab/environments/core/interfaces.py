@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -90,6 +90,20 @@ class BaseObservationStrategy(ABC):
 
         Returns:
             np.ndarray: The observation vector.
+        """
+        pass
+
+    @abstractmethod
+    def get_feature_names(self, env: TradingEnvProtocol) -> List[str]:
+        """
+        Returns a list of feature names corresponding to the exact order
+        of elements in the flattened observation vector.
+
+        Args:
+            env (TradingEnvProtocol): The trading environment.
+
+        Returns:
+            List[str]: A list of feature names (e.g., ["Close_t-1", "RSI_t", ...])
         """
         pass
 
