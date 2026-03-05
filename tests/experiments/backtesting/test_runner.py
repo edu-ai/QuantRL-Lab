@@ -71,3 +71,46 @@ class TestBacktestRunner:
 
         assert len(results) == 2
         assert all(r.status == "completed" for r in results)
+
+    @patch("quantrl_lab.experiments.backtesting.runner.make_vec_env")
+    @patch("quantrl_lab.experiments.backtesting.runner.train_model")
+    @patch("quantrl_lab.experiments.backtesting.runner.evaluate_model")
+    def test_inspect_result_no_error(self, mock_eval, mock_train, mock_make_vec_env, runner, mock_job):
+        mock_model = MagicMock()
+        mock_train.return_value = mock_model
+        mock_eval.return_value = (
+            [10.0],
+            [{"total_reward": 10.0, "steps": 5, "initial_value": 100000, "final_value": 110000, "actions_taken": {}}],
+        )
+        result = runner.run_job(mock_job)
+        # Should not raise
+        BacktestRunner.inspect_result(result)
+
+    @patch("quantrl_lab.experiments.backtesting.runner.make_vec_env")
+    @patch("quantrl_lab.experiments.backtesting.runner.train_model")
+    @patch("quantrl_lab.experiments.backtesting.runner.evaluate_model")
+    def test_inspect_batch_no_error(self, mock_eval, mock_train, mock_make_vec_env, runner, mock_job):
+        mock_model = MagicMock()
+        mock_train.return_value = mock_model
+        mock_eval.return_value = ([10.0], [{"total_reward": 10.0, "steps": 5}])
+        results = runner.run_batch([mock_job])
+        # Should not raise
+        BacktestRunner.inspect_batch(results)
+
+    @patch("quantrl_lab.experiments.backtesting.runner.make_vec_env")
+    def test_run_batch_continues_on_failure(self, mock_make_vec_env, runner, mock_job):
+        """Batch keeps running even if one job fails."""
+        mock_make_vec_env.side_effect = Exception("Env failed")
+        results = runner.run_batch([mock_job, mock_job])
+        assert len(results) == 2
+        assert all(r.status == "failed" for r in results)
+
+    def test_inspect_failed_result_no_error(self, mock_job):
+        """inspect_result on a failed result should not raise."""
+        result = ExperimentResult(
+            job=mock_job,
+            metrics={},
+            status="failed",
+            error=RuntimeError("something broke"),
+        )
+        BacktestRunner.inspect_result(result)
