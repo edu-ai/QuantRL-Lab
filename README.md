@@ -133,9 +133,11 @@ BacktestRunner.inspect_batch(results)
 ## Roadmap
 
 - **Data sources**: crypto and OANDA forex support
-- **Technical indicators**: Ichimoku, Williams %R, CCI additions
-- **Environments**: multi-stock environment with hedging pair capabilities (in progress)
-- **Observable space**: fundamental data, macroeconomic indicators, sector performance
+- **Environments**: multi-stock environment (in progress)
+- **Observable space**: macroeconomic indicators integration
+- **Hyperparameter tuning**: expand Optuna search spaces and pruning strategies
+- **Live trading**: extended order types and position management for the Alpaca deployment client
+- **Paper trading**: end-to-end deployment boilerplate for running trained agents in paper trading mode
 
 ---
 
