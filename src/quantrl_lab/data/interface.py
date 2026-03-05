@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional, Protocol, Union, runtime_checkable
+from typing import Any, List, Optional, Protocol, Union, runtime_checkable
 
 import pandas as pd
 
@@ -48,7 +48,7 @@ class DataSource(ABC):
         self,
         instrument_type: Optional[str] = None,
         market: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> List[str]:
         """
         Return a list of available instrument symbols or identifiers
@@ -85,6 +85,16 @@ class DataSource(ABC):
             features.append("streaming")
         if isinstance(self, ConnectionManaged):
             features.append("connection_managed")
+        if isinstance(self, FundamentalDataCapable):
+            features.append("fundamental_data")
+        if isinstance(self, MacroDataCapable):
+            features.append("macro_data")
+        if isinstance(self, AnalystDataCapable):
+            features.append("analyst_data")
+        if isinstance(self, SectorDataCapable):
+            features.append("sector_data")
+        if isinstance(self, CompanyProfileCapable):
+            features.append("company_profile")
 
         # Check if instrument discovery is implemented (method is overridden)
         if (
@@ -139,7 +149,7 @@ class HistoricalDataCapable(Protocol):
     def get_historical_ohlcv_data(
         self,
         symbols: Union[str, List[str]],
-        start: Union[str, datetime],
+        start: Optional[Union[str, datetime]] = None,
         end: Optional[Union[str, datetime]] = None,
         timeframe: str = "1d",
         **kwargs,
@@ -158,7 +168,7 @@ class NewsDataCapable(Protocol):
         start: Union[str, datetime],
         end: Optional[Union[str, datetime]] = None,
         **kwargs,
-    ) -> Union[pd.DataFrame, Dict]:
+    ) -> pd.DataFrame:
         """Get news for specified symbols and time range."""
         ...
 
@@ -193,11 +203,10 @@ class StreamingCapable(Protocol):
     - stop
     """
 
-    async def subscribe(
+    async def subscribe_to_updates(
         self,
-        symbols: Union[str, List[str]],
-        callback,
-        data_type: str = "quotes",
+        symbol: str,
+        data_type: str = "trades",
         **kwargs,
     ):
         """Subscribe to real-time data updates."""
@@ -221,7 +230,7 @@ class FundamentalDataCapable(Protocol):
     - get_fundamental_data
     """
 
-    def get_fundamental_data(self, symbols: str, metrics: List[str], **kwargs) -> Union[pd.DataFrame, Dict]:
+    def get_fundamental_data(self, symbols: str, metrics: List[str], **kwargs) -> pd.DataFrame:
         """Get fundamental data for specified symbols and metrics."""
         ...
 
@@ -240,7 +249,117 @@ class MacroDataCapable(Protocol):
         indicators: Union[str, List[str]],
         start: Union[str, datetime],
         end: Union[str, datetime],
-    ) -> Union[pd.DataFrame, Dict]:
+    ) -> pd.DataFrame:
         """Get macroeconomic data for specified indicators and time
         range."""
+        ...
+
+
+@runtime_checkable
+class AnalystDataCapable(Protocol):
+    """
+    Protocol for data sources that provide analyst ratings and grades
+    data.
+
+    This includes analyst recommendations, upgrades/downgrades, price targets,
+    and other research-based insights from financial analysts.
+
+    It checks if the class has the following methods:
+    - get_historical_grades
+    - get_historical_rating
+    """
+
+    def get_historical_grades(self, symbol: str, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical analyst grades/recommendations for a symbol.
+
+        Args:
+            symbol: Stock symbol to fetch grades for
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical analyst grades data
+        """
+        ...
+
+    def get_historical_rating(self, symbol: str, limit: int = 100, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical analyst ratings for a symbol.
+
+        Args:
+            symbol: Stock symbol to fetch ratings for
+            limit: Number of records to return (default: 100)
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical analyst ratings data
+        """
+        ...
+
+
+@runtime_checkable
+class SectorDataCapable(Protocol):
+    """
+    Protocol for data sources that provide sector and industry
+    performance data.
+
+    This includes historical performance metrics for market sectors and
+    industries, enabling sector rotation and market trend analysis.
+
+    It checks if the class has the following methods:
+    - get_historical_sector_performance
+    - get_historical_industry_performance
+    """
+
+    def get_historical_sector_performance(self, sector: str, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical performance data for a specific market sector.
+
+        Args:
+            sector: Market sector name (e.g., "Energy", "Technology", "Healthcare")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical sector performance data
+        """
+        ...
+
+    def get_historical_industry_performance(self, industry: str, **kwargs: Any) -> pd.DataFrame:
+        """
+        Get historical performance data for a specific industry.
+
+        Args:
+            industry: Industry name (e.g., "Biotechnology", "Software", "Banks")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Historical industry performance data
+        """
+        ...
+
+
+@runtime_checkable
+class CompanyProfileCapable(Protocol):
+    """
+    Protocol for data sources that provide company profile and metadata.
+
+    This includes company information such as sector/industry classification,
+    executive information, key financial metrics, and company details.
+
+    It checks if the class has the following method:
+    - get_company_profile
+    """
+
+    def get_company_profile(self, symbol: Union[str, List[str]], **kwargs: Any) -> pd.DataFrame:
+        """
+        Get company profile information including sector, industry, and
+        key metrics.
+
+        Args:
+            symbol: Stock ticker symbol or list of symbols
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            pd.DataFrame: Company profile data with metadata
+        """
         ...

@@ -1,0 +1,16 @@
+{
+  "indicators": [
+    {
+      "SMA": {
+        "window": [10, 20, 50]
+      }
+    },
+    {
+      "RSI": {
+        "window": [14, 21]
+      }
+    },
+    "MACD",
+    "OBV"
+  ]
+}

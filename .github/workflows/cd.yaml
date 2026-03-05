@@ -23,34 +23,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.10"
+          version: "latest"
 
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Configure Poetry
-        run: |
-          poetry config virtualenvs.in-project true
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Set up Python
+        run: uv python install 3.10
 
       - name: Install dependencies
-        run: |
-          poetry install --no-interaction
-          poetry add pytest-cov
+        run: uv sync --extra dev
 
-      - name: Run tests
+      - name: Run tests (excluding integration tests)
         run: |
-          poetry run pytest tests/ --cov=src/quantrl_lab --cov-report=xml
+          uv run pytest tests/ -m "not integration" --cov=src/quantrl_lab --cov-report=xml
 
   build-and-publish:
     name: Build and Publish Package
@@ -64,33 +50,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.10"
+          version: "latest"
 
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Configure Poetry
-        run: |
-          poetry config virtualenvs.in-project true
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Set up Python
+        run: uv python install 3.10
 
       - name: Install dependencies
-        run: |
-          poetry install --no-interaction
+        run: uv sync --extra dev
 
       - name: Build package
         run: |
-          poetry build
+          uv build
 
       - name: Check package contents
         run: |
@@ -98,21 +71,20 @@ jobs:
           echo "---"
           unzip -l dist/*.whl
 
-      # Option 1: Publish using PyPI API token (traditional method)
+      # Publish using PyPI API token (traditional method)
       - name: Publish to Test PyPI (Manual trigger only)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_test_pypi == 'true'
         env:
-          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
-          poetry config repositories.testpypi https://test.pypi.org/legacy/
-          poetry publish -r testpypi --username __token__ --password $POETRY_PYPI_TOKEN_TESTPYPI
+          uv publish --publish-url https://test.pypi.org/legacy/
 
       - name: Publish to PyPI (On Release)
         if: github.event_name == 'release'
         env:
-          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYPI
+          uv publish
 
       # Option 2: Publish using Trusted Publishing (more secure, no API token needed)
       # Uncomment the sections below if you prefer to use Trusted Publishing
