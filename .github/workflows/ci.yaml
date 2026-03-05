@@ -83,9 +83,9 @@ jobs:
           import numpy as np
           from stable_baselines3.common.env_checker import check_env
           from quantrl_lab.environments.stock import SingleStockTradingEnv, SingleStockEnvConfig
-          from quantrl_lab.environments.stock.strategies.actions.standard_market_action_strategy import StandardMarketActionStrategy
+          from quantrl_lab.environments.stock.strategies.actions.standard import StandardActionStrategy
           from quantrl_lab.environments.stock.strategies.rewards import PortfolioValueChangeReward
-          from quantrl_lab.environments.stock.strategies.observations import PortfolioWithTrendObservation
+          from quantrl_lab.environments.stock.strategies.observations import FeatureAwareObservationStrategy
 
           # Create test data
           data_size = 100
@@ -95,7 +95,6 @@ jobs:
 
           # Create config
           config = SingleStockEnvConfig(
-              price_column_index=PRICE_COLUMN_INDEX,
               window_size=10,
               initial_balance=10000.0,
               transaction_cost_pct=0.001,
@@ -107,9 +106,10 @@ jobs:
           env = SingleStockTradingEnv(
               data=test_data,
               config=config,
-              action_strategy=StandardMarketActionStrategy(),
+              action_strategy=StandardActionStrategy(),
               reward_strategy=PortfolioValueChangeReward(),
-              observation_strategy=PortfolioWithTrendObservation()
+              observation_strategy=FeatureAwareObservationStrategy(),
+              price_column=PRICE_COLUMN_INDEX,
           )
 
           # Check environment
