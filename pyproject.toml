@@ -140,6 +140,24 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/quantrl_lab"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "tests/",
+    "notebooks/",
+    "docs/",
+    "data/",
+    "examples/",
+    "scripts/",
+    "site/",
+    "notes/",
+    ".env*",
+    "*.db",
+    "*.html",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
