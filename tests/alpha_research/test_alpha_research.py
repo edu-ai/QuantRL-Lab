@@ -11,6 +11,8 @@ Tests cover:
 - Visualization
 """
 
+import importlib.util
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -634,6 +636,10 @@ class TestAlphaVisualizer:
 
         plt.close(fig)
 
+    @pytest.mark.skipif(
+        importlib.util.find_spec("plotly") is None,
+        reason="plotly not installed (uv sync --extra viz)",
+    )
     def test_generate_html_report(self, multiple_alpha_results, tmp_path):
         """Test HTML report generation."""
         viz = AlphaVisualizer()
