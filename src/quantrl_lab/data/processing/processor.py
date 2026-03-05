@@ -408,7 +408,7 @@ class DataProcessor:
 
         # Handle Data Splitting (Post-Processing)
         # Debug: Check for columns with all NaN values before dropna
-        verbose = kwargs.get('verbose', False)
+        verbose = kwargs.get("verbose", False)
         if verbose:
             null_counts = processed_data.isnull().sum()
             all_null_cols = null_counts[null_counts == len(processed_data)]

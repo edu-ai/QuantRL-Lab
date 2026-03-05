@@ -560,14 +560,14 @@ def adx(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
         plus_dm_smooth = _wilder_smooth(plus_dm, window)
         minus_dm_smooth = _wilder_smooth(minus_dm, window)
 
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             plus_di = 100 * (plus_dm_smooth / tr_smooth)
             minus_di = 100 * (minus_dm_smooth / tr_smooth)
 
         sum_di = plus_di + minus_di
         diff_di = np.abs(plus_di - minus_di)
 
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             dx = 100 * (diff_di / sum_di)
 
         adx_val = _wilder_smooth(dx, window)

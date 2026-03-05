@@ -253,10 +253,10 @@ class TestLimitExecutionReward:
         env.current_step = 3
         env.portfolio.executed_orders_history = [
             {
-                'step': 3,
-                'type': 'limit_buy_executed',
-                'price': 95.0,
-                'reference_price': 100.0,
+                "step": 3,
+                "type": "limit_buy_executed",
+                "price": 95.0,
+                "reference_price": 100.0,
             }
         ]
         reward = strategy.calculate_reward(env)
@@ -270,10 +270,10 @@ class TestLimitExecutionReward:
         env.current_step = 7
         env.portfolio.executed_orders_history = [
             {
-                'step': 7,
-                'type': 'limit_sell_executed',
-                'price': 110.0,
-                'reference_price': 100.0,
+                "step": 7,
+                "type": "limit_sell_executed",
+                "price": 110.0,
+                "reference_price": 100.0,
             }
         ]
         reward = strategy.calculate_reward(env)
@@ -286,8 +286,8 @@ class TestLimitExecutionReward:
         env = MagicMock()
         env.current_step = 10
         env.portfolio.executed_orders_history = [
-            {'step': 9, 'type': 'limit_buy_executed', 'price': 95.0, 'reference_price': 100.0},
-            {'step': 10, 'type': 'market_buy', 'price': 100.0, 'reference_price': 100.0},
+            {"step": 9, "type": "limit_buy_executed", "price": 95.0, "reference_price": 100.0},
+            {"step": 10, "type": "market_buy", "price": 100.0, "reference_price": 100.0},
         ]
         # The limit_buy at step 9 should be skipped (reversed loop breaks)
         # The market_buy at step 10 is not a "limit_buy_executed" so no improvement
@@ -300,7 +300,7 @@ class TestLimitExecutionReward:
         env = MagicMock()
         env.current_step = 2
         env.portfolio.executed_orders_history = [
-            {'step': 2, 'type': 'limit_buy_executed', 'price': 100.0, 'reference_price': 100.0}
+            {"step": 2, "type": "limit_buy_executed", "price": 100.0, "reference_price": 100.0}
         ]
         assert strategy.calculate_reward(env) == 0.0
 
@@ -311,7 +311,7 @@ class TestLimitExecutionReward:
         env = MagicMock()
         env.current_step = 1
         env.portfolio.executed_orders_history = [
-            {'step': 1, 'type': 'limit_buy_executed', 'price': 95.0, 'reference_price': 0.0}
+            {"step": 1, "type": "limit_buy_executed", "price": 95.0, "reference_price": 0.0}
         ]
         assert strategy.calculate_reward(env) == 0.0
 
@@ -369,7 +369,7 @@ class TestCompositeRewardExtended:
         r1 = MockReward(1.0)
         composite = CompositeReward(strategies=[r1], weights=[0.0], normalize_weights=True)
         env = MagicMock(spec=TradingEnvProtocol)
-        with pytest.raises(ValueError, match='zero'):
+        with pytest.raises(ValueError, match="zero"):
             composite.calculate_reward(env)
 
 

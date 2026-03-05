@@ -9,9 +9,9 @@ from quantrl_lab.data.processing.steps.features.context import MarketContextStep
 
 @pytest.fixture
 def base_df():
-    dates = pd.date_range('2023-01-01', periods=5, freq='D')
+    dates = pd.date_range("2023-01-01", periods=5, freq="D")
     return pd.DataFrame(
-        {'Close': [100, 101, 102, 103, 104], 'Volume': [1000, 1100, 1200, 1300, 1400]},
+        {"Close": [100, 101, 102, 103, 104], "Volume": [1000, 1100, 1200, 1300, 1400]},
         index=dates,
     )
 
@@ -25,8 +25,8 @@ def metadata():
 def sector_df():
     return pd.DataFrame(
         {
-            'date': pd.date_range('2023-01-01', periods=5, freq='D'),
-            'tech_return': [0.01, 0.02, -0.01, 0.03, 0.00],
+            "date": pd.date_range("2023-01-01", periods=5, freq="D"),
+            "tech_return": [0.01, 0.02, -0.01, 0.03, 0.00],
         }
     )
 
@@ -35,8 +35,8 @@ def sector_df():
 def industry_df():
     return pd.DataFrame(
         {
-            'date': pd.date_range('2023-01-01', periods=5, freq='D'),
-            'software_return': [0.005, 0.01, -0.005, 0.02, 0.01],
+            "date": pd.date_range("2023-01-01", periods=5, freq="D"),
+            "software_return": [0.005, 0.01, -0.005, 0.02, 0.01],
         }
     )
 
@@ -51,20 +51,20 @@ def test_no_sector_data_returns_unchanged(base_df, metadata):
 def test_with_sector_data_adds_prefixed_columns(base_df, metadata, sector_df):
     step = MarketContextStep(sector_perf_df=sector_df)
     result = step.process(base_df, metadata)
-    assert 'sector_tech_return' in result.columns
+    assert "sector_tech_return" in result.columns
 
 
 def test_with_industry_data_adds_prefixed_columns(base_df, metadata, industry_df):
     step = MarketContextStep(industry_perf_df=industry_df)
     result = step.process(base_df, metadata)
-    assert 'industry_software_return' in result.columns
+    assert "industry_software_return" in result.columns
 
 
 def test_with_both_sector_and_industry(base_df, metadata, sector_df, industry_df):
     step = MarketContextStep(sector_perf_df=sector_df, industry_perf_df=industry_df)
     result = step.process(base_df, metadata)
-    assert 'sector_tech_return' in result.columns
-    assert 'industry_software_return' in result.columns
+    assert "sector_tech_return" in result.columns
+    assert "industry_software_return" in result.columns
 
 
 def test_empty_sector_df_returns_unchanged(base_df, metadata):
@@ -81,8 +81,8 @@ def test_datetime_index_preserved(base_df, metadata, sector_df):
 
 
 def test_timezone_aware_index_handled(metadata, sector_df):
-    dates = pd.date_range('2023-01-01', periods=5, freq='D', tz='UTC')
-    df = pd.DataFrame({'Close': [100, 101, 102, 103, 104]}, index=dates)
+    dates = pd.date_range("2023-01-01", periods=5, freq="D", tz="UTC")
+    df = pd.DataFrame({"Close": [100, 101, 102, 103, 104]}, index=dates)
     step = MarketContextStep(sector_perf_df=sector_df)
     result = step.process(df, metadata)
     assert len(result) == 5
@@ -90,14 +90,14 @@ def test_timezone_aware_index_handled(metadata, sector_df):
 
 def test_step_name():
     step = MarketContextStep()
-    assert step.get_step_name() == 'Market Context Enrichment'
+    assert step.get_step_name() == "Market Context Enrichment"
 
 
 def test_non_datetime_index_with_date_column(metadata, sector_df):
     df = pd.DataFrame(
         {
-            'Date': pd.date_range('2023-01-01', periods=5, freq='D'),
-            'Close': [100, 101, 102, 103, 104],
+            "Date": pd.date_range("2023-01-01", periods=5, freq="D"),
+            "Close": [100, 101, 102, 103, 104],
         }
     )
     step = MarketContextStep(sector_perf_df=sector_df)

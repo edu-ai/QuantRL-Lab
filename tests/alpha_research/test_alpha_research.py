@@ -1195,19 +1195,19 @@ def ohlcv_with_indicators() -> pd.DataFrame:
     """OHLCV data with synthetic SMA, RSI, MACD columns."""
     np.random.seed(0)
     n = 50
-    dates = pd.date_range('2023-01-01', periods=n, freq='B')
+    dates = pd.date_range("2023-01-01", periods=n, freq="B")
     close = 100 + np.cumsum(np.random.randn(n) * 0.5)
     df = pd.DataFrame(
         {
-            'Open': close * 0.99,
-            'High': close * 1.01,
-            'Low': close * 0.98,
-            'Close': close,
-            'Volume': np.random.randint(1000, 5000, n),
-            'SMA_20': close * 0.98,  # Close always above SMA → BUY signals
-            'RSI_14': np.where(np.arange(n) % 2 == 0, 25.0, 75.0),  # alternates oversold/overbought
-            'EMA_12': close * 1.02,  # fast > slow for MACD
-            'EMA_26': close * 0.97,
+            "Open": close * 0.99,
+            "High": close * 1.01,
+            "Low": close * 0.98,
+            "Close": close,
+            "Volume": np.random.randint(1000, 5000, n),
+            "SMA_20": close * 0.98,  # Close always above SMA → BUY signals
+            "RSI_14": np.where(np.arange(n) % 2 == 0, 25.0, 75.0),  # alternates oversold/overbought
+            "EMA_12": close * 1.02,  # fast > slow for MACD
+            "EMA_26": close * 0.97,
         },
         index=dates,
     )
@@ -1216,7 +1216,7 @@ def ohlcv_with_indicators() -> pd.DataFrame:
 
 class TestTrendFollowingStrategySignals:
     def test_buy_when_price_above_indicator(self, ohlcv_with_indicators):
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20')
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20")
         signals = strategy.generate_signals(ohlcv_with_indicators)
         # Close > SMA_20 for all rows, so all should be BUY
         from quantrl_lab.alpha_research.base import SignalType
@@ -1227,79 +1227,79 @@ class TestTrendFollowingStrategySignals:
         from quantrl_lab.alpha_research.base import SignalType
 
         np.random.seed(1)
-        dates = pd.date_range('2023-01-01', periods=5, freq='B')
+        dates = pd.date_range("2023-01-01", periods=5, freq="B")
         df = pd.DataFrame(
             {
-                'Close': [90, 90, 90, 90, 90],
-                'SMA_20': [100, 100, 100, 100, 100],
+                "Close": [90, 90, 90, 90, 90],
+                "SMA_20": [100, 100, 100, 100, 100],
             },
             index=dates,
         )
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20', allow_short=True)
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20", allow_short=True)
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.SELL.value).all()
 
     def test_hold_when_allow_short_false_and_below(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=3, freq='B')
-        df = pd.DataFrame({'Close': [90, 90, 90], 'SMA_20': [100, 100, 100]}, index=dates)
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20', allow_short=False)
+        dates = pd.date_range("2023-01-01", periods=3, freq="B")
+        df = pd.DataFrame({"Close": [90, 90, 90], "SMA_20": [100, 100, 100]}, index=dates)
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20", allow_short=False)
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.HOLD.value).all()
 
     def test_missing_indicator_returns_hold(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=3, freq='B')
-        df = pd.DataFrame({'Close': [100, 101, 102]}, index=dates)
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20')
+        dates = pd.date_range("2023-01-01", periods=3, freq="B")
+        df = pd.DataFrame({"Close": [100, 101, 102]}, index=dates)
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20")
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.HOLD.value).all()
 
     def test_scores_bounded(self, ohlcv_with_indicators):
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20')
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20")
         scores = strategy.generate_scores(ohlcv_with_indicators)
         assert (scores >= -1.0).all()
         assert (scores <= 1.0).all()
 
     def test_get_required_columns(self):
-        strategy = TrendFollowingStrategy(indicator_col='SMA_20')
-        assert 'SMA_20' in strategy.get_required_columns()
-        assert 'Close' in strategy.get_required_columns()
+        strategy = TrendFollowingStrategy(indicator_col="SMA_20")
+        assert "SMA_20" in strategy.get_required_columns()
+        assert "Close" in strategy.get_required_columns()
 
 
 class TestMeanReversionStrategySignals:
     def test_buy_when_oversold(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=5, freq='B')
-        df = pd.DataFrame({'RSI_14': [20, 20, 20, 20, 20]}, index=dates)
-        strategy = MeanReversionStrategy(indicator_col='RSI_14', oversold=30, overbought=70)
+        dates = pd.date_range("2023-01-01", periods=5, freq="B")
+        df = pd.DataFrame({"RSI_14": [20, 20, 20, 20, 20]}, index=dates)
+        strategy = MeanReversionStrategy(indicator_col="RSI_14", oversold=30, overbought=70)
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.BUY.value).all()
 
     def test_sell_when_overbought(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=5, freq='B')
-        df = pd.DataFrame({'RSI_14': [80, 80, 80, 80, 80]}, index=dates)
-        strategy = MeanReversionStrategy(indicator_col='RSI_14', oversold=30, overbought=70, allow_short=True)
+        dates = pd.date_range("2023-01-01", periods=5, freq="B")
+        df = pd.DataFrame({"RSI_14": [80, 80, 80, 80, 80]}, index=dates)
+        strategy = MeanReversionStrategy(indicator_col="RSI_14", oversold=30, overbought=70, allow_short=True)
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.SELL.value).all()
 
     def test_scores_bounded(self):
-        dates = pd.date_range('2023-01-01', periods=10, freq='B')
-        df = pd.DataFrame({'RSI_14': np.linspace(0, 100, 10)}, index=dates)
-        strategy = MeanReversionStrategy(indicator_col='RSI_14')
+        dates = pd.date_range("2023-01-01", periods=10, freq="B")
+        df = pd.DataFrame({"RSI_14": np.linspace(0, 100, 10)}, index=dates)
+        strategy = MeanReversionStrategy(indicator_col="RSI_14")
         scores = strategy.generate_scores(df)
         assert (scores >= -1.0).all()
         assert (scores <= 1.0).all()
 
     def test_williams_r_scale(self):
-        dates = pd.date_range('2023-01-01', periods=5, freq='B')
-        df = pd.DataFrame({'WR': [-100.0, -100.0, -100.0, -100.0, -100.0]}, index=dates)
-        strategy = MeanReversionStrategy(indicator_col='WR', indicator_scale='williams_r')
+        dates = pd.date_range("2023-01-01", periods=5, freq="B")
+        df = pd.DataFrame({"WR": [-100.0, -100.0, -100.0, -100.0, -100.0]}, index=dates)
+        strategy = MeanReversionStrategy(indicator_col="WR", indicator_scale="williams_r")
         scores = strategy.generate_scores(df)
         # At -100, score = (-50 - (-100)) / 50 = 1.0 (clipped to 1.0)
         assert scores.values == pytest.approx([1.0] * 5)
@@ -1309,36 +1309,36 @@ class TestMACDCrossoverStrategySignals:
     def test_buy_when_fast_above_slow(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=4, freq='B')
+        dates = pd.date_range("2023-01-01", periods=4, freq="B")
         df = pd.DataFrame(
-            {'EMA_12': [105, 106, 107, 108], 'EMA_26': [100, 100, 100, 100], 'Close': [104, 105, 106, 107]}, index=dates
+            {"EMA_12": [105, 106, 107, 108], "EMA_26": [100, 100, 100, 100], "Close": [104, 105, 106, 107]}, index=dates
         )
-        strategy = MACDCrossoverStrategy(fast_col='EMA_12', slow_col='EMA_26')
+        strategy = MACDCrossoverStrategy(fast_col="EMA_12", slow_col="EMA_26")
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.BUY.value).all()
 
     def test_sell_when_fast_below_slow(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=4, freq='B')
+        dates = pd.date_range("2023-01-01", periods=4, freq="B")
         df = pd.DataFrame(
-            {'EMA_12': [95, 95, 95, 95], 'EMA_26': [100, 100, 100, 100], 'Close': [97, 97, 97, 97]}, index=dates
+            {"EMA_12": [95, 95, 95, 95], "EMA_26": [100, 100, 100, 100], "Close": [97, 97, 97, 97]}, index=dates
         )
-        strategy = MACDCrossoverStrategy(fast_col='EMA_12', slow_col='EMA_26', allow_short=True)
+        strategy = MACDCrossoverStrategy(fast_col="EMA_12", slow_col="EMA_26", allow_short=True)
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.SELL.value).all()
 
     def test_scores_bounded(self):
-        dates = pd.date_range('2023-01-01', periods=5, freq='B')
+        dates = pd.date_range("2023-01-01", periods=5, freq="B")
         df = pd.DataFrame(
             {
-                'EMA_12': [105, 104, 103, 102, 101],
-                'EMA_26': [100, 100, 100, 100, 100],
-                'Close': [103, 102, 101, 101, 100],
+                "EMA_12": [105, 104, 103, 102, 101],
+                "EMA_26": [100, 100, 100, 100, 100],
+                "Close": [103, 102, 101, 101, 100],
             },
             index=dates,
         )
-        strategy = MACDCrossoverStrategy(fast_col='EMA_12', slow_col='EMA_26')
+        strategy = MACDCrossoverStrategy(fast_col="EMA_12", slow_col="EMA_26")
         scores = strategy.generate_scores(df)
         assert (scores >= -1.0).all()
         assert (scores <= 1.0).all()
@@ -1346,8 +1346,8 @@ class TestMACDCrossoverStrategySignals:
     def test_missing_columns_returns_hold(self):
         from quantrl_lab.alpha_research.base import SignalType
 
-        dates = pd.date_range('2023-01-01', periods=3, freq='B')
-        df = pd.DataFrame({'Close': [100, 101, 102]}, index=dates)
-        strategy = MACDCrossoverStrategy(fast_col='EMA_12', slow_col='EMA_26')
+        dates = pd.date_range("2023-01-01", periods=3, freq="B")
+        df = pd.DataFrame({"Close": [100, 101, 102]}, index=dates)
+        strategy = MACDCrossoverStrategy(fast_col="EMA_12", slow_col="EMA_26")
         signals = strategy.generate_signals(df)
         assert (signals == SignalType.HOLD.value).all()

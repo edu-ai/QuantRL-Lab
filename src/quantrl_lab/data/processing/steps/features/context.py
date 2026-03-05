@@ -48,7 +48,7 @@ class MarketContextStep:
         temp_index = False
         if not isinstance(df.index, pd.DatetimeIndex):
             # Try to find date column
-            for col in ['Timestamp', 'Date', 'date']:
+            for col in ["Timestamp", "Date", "date"]:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col])
                     df.set_index(col, inplace=True)
@@ -59,49 +59,49 @@ class MarketContextStep:
         # Normalize index to tz-naive UTC midnight to prevent join errors
         if isinstance(df.index, pd.DatetimeIndex):
             if df.index.tz is not None:
-                df.index = df.index.tz_convert('UTC').tz_localize(None)
+                df.index = df.index.tz_convert("UTC").tz_localize(None)
             df.index = df.index.normalize()
 
         # --- Merge Sector Performance ---
         if self.sector_perf_df is not None and not self.sector_perf_df.empty:
             sector_df = self.sector_perf_df.copy()
-            if 'date' in sector_df.columns:
-                sector_df['date'] = pd.to_datetime(sector_df['date'])
-                sector_df.set_index('date', inplace=True)
+            if "date" in sector_df.columns:
+                sector_df["date"] = pd.to_datetime(sector_df["date"])
+                sector_df.set_index("date", inplace=True)
 
                 if isinstance(sector_df.index, pd.DatetimeIndex):
                     if sector_df.index.tz is not None:
-                        sector_df.index = sector_df.index.tz_convert('UTC').tz_localize(None)
+                        sector_df.index = sector_df.index.tz_convert("UTC").tz_localize(None)
                     sector_df.index = sector_df.index.normalize()
 
                 # Keep numeric columns only for performance metrics
-                numeric_cols = sector_df.select_dtypes(include=['number']).columns
+                numeric_cols = sector_df.select_dtypes(include=["number"]).columns
                 sector_df = sector_df[numeric_cols]
 
                 # Add prefix
-                sector_df = sector_df.add_prefix('sector_')
+                sector_df = sector_df.add_prefix("sector_")
 
                 # Join
-                df = df.join(sector_df, how='left')
+                df = df.join(sector_df, how="left")
 
         # --- Merge Industry Performance ---
         if self.industry_perf_df is not None and not self.industry_perf_df.empty:
             ind_df = self.industry_perf_df.copy()
-            if 'date' in ind_df.columns:
-                ind_df['date'] = pd.to_datetime(ind_df['date'])
-                ind_df.set_index('date', inplace=True)
+            if "date" in ind_df.columns:
+                ind_df["date"] = pd.to_datetime(ind_df["date"])
+                ind_df.set_index("date", inplace=True)
 
                 if isinstance(ind_df.index, pd.DatetimeIndex):
                     if ind_df.index.tz is not None:
-                        ind_df.index = ind_df.index.tz_convert('UTC').tz_localize(None)
+                        ind_df.index = ind_df.index.tz_convert("UTC").tz_localize(None)
                     ind_df.index = ind_df.index.normalize()
 
-                numeric_cols = ind_df.select_dtypes(include=['number']).columns
+                numeric_cols = ind_df.select_dtypes(include=["number"]).columns
                 ind_df = ind_df[numeric_cols]
 
-                ind_df = ind_df.add_prefix('industry_')
+                ind_df = ind_df.add_prefix("industry_")
 
-                df = df.join(ind_df, how='left')
+                df = df.join(ind_df, how="left")
 
         # Restore index if we changed it temporarily
         if temp_index and date_col:

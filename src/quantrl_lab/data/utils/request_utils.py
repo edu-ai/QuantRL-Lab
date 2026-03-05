@@ -251,11 +251,11 @@ def create_default_wrapper(**kwargs) -> HTTPRequestWrapper:
         >>> wrapper = create_default_wrapper(max_retries=5, rate_limit_delay=1.0)
     """
     defaults = {
-        'max_retries': 3,
-        'retry_strategy': RetryStrategy.EXPONENTIAL,
-        'base_delay': 1.0,
-        'rate_limit_delay': 0.0,
-        'timeout': 30.0,
+        "max_retries": 3,
+        "retry_strategy": RetryStrategy.EXPONENTIAL,
+        "base_delay": 1.0,
+        "rate_limit_delay": 0.0,
+        "timeout": 30.0,
     }
     defaults.update(kwargs)
     return HTTPRequestWrapper(**defaults)

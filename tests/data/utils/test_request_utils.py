@@ -31,7 +31,7 @@ class TestHTTPRequestWrapper:
         """Test successful HTTP request."""
         wrapper = HTTPRequestWrapper(max_retries=3)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"data": "test"}
@@ -46,7 +46,7 @@ class TestHTTPRequestWrapper:
         """Test that wrapper retries on failure."""
         wrapper = HTTPRequestWrapper(max_retries=2, base_delay=0.01)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             # First call fails, second succeeds
             mock_fail = MagicMock()
             mock_fail.status_code = 500
@@ -71,7 +71,7 @@ class TestHTTPRequestWrapper:
         """Test that wrapper stops after max retries."""
         wrapper = HTTPRequestWrapper(max_retries=2, base_delay=0.01)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.response = mock_response
@@ -90,7 +90,7 @@ class TestHTTPRequestWrapper:
         """Test rate limiting between requests."""
         wrapper = HTTPRequestWrapper(rate_limit_delay=0.1)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"data": "test"}
@@ -173,7 +173,7 @@ class TestHTTPRequestWrapper:
         """Test POST request."""
         wrapper = HTTPRequestWrapper()
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"success": True}
@@ -191,7 +191,7 @@ class TestHTTPRequestWrapper:
         """Test request with custom headers."""
         wrapper = HTTPRequestWrapper()
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"data": "test"}
@@ -207,7 +207,7 @@ class TestHTTPRequestWrapper:
         """Test request with query parameters."""
         wrapper = HTTPRequestWrapper()
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"data": "test"}
@@ -223,7 +223,7 @@ class TestHTTPRequestWrapper:
         """Test request with timeout."""
         wrapper = HTTPRequestWrapper(timeout=10.0)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"data": "test"}
@@ -241,7 +241,7 @@ class TestHTTPRequestWrapper:
         def custom_check(response):
             return response.get("status") == "error"
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"status": "error", "message": "test"}
@@ -254,7 +254,7 @@ class TestHTTPRequestWrapper:
         """Test handling non-JSON response."""
         wrapper = HTTPRequestWrapper()
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.side_effect = ValueError("Not JSON")
@@ -270,7 +270,7 @@ class TestHTTPRequestWrapper:
         raising."""
         wrapper = HTTPRequestWrapper(max_retries=0)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.response = mock_response
@@ -287,7 +287,7 @@ class TestHTTPRequestWrapper:
         """Test that rate limit errors use custom retry multiplier."""
         wrapper = HTTPRequestWrapper(max_retries=1, base_delay=0.05)
 
-        with patch('requests.request') as mock_request:
+        with patch("requests.request") as mock_request:
             # First request gets rate limited
             mock_rate_limit = MagicMock()
             mock_rate_limit.status_code = 429

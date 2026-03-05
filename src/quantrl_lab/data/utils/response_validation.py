@@ -51,14 +51,14 @@ def validate_api_response(
 
     # Check length for collections
     if min_length is not None:
-        if hasattr(response, '__len__'):
+        if hasattr(response, "__len__"):
             if len(response) < min_length:
                 logger.warning(f"{prefix}: Expected minimum length {min_length}, got {len(response)}")
                 return False
 
     # Check empty
     if not allow_empty:
-        if hasattr(response, '__len__') and len(response) == 0:
+        if hasattr(response, "__len__") and len(response) == 0:
             logger.warning(f"{prefix}: Response is empty")
             return False
 
@@ -194,7 +194,7 @@ def validate_date_range_data(
     df: pd.DataFrame,
     start_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
     end_date: Optional[Union[str, datetime, pd.Timestamp]] = None,
-    timestamp_col: str = 'Timestamp',
+    timestamp_col: str = "Timestamp",
 ) -> bool:
     """
     Validate that DataFrame data falls within expected date range.

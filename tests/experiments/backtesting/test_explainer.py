@@ -11,7 +11,7 @@ from quantrl_lab.experiments.backtesting.explainer import AgentExplainer
 def _make_base_env(feature_names=None):
     """Create a mock base gym environment with observation strategy."""
     if feature_names is None:
-        feature_names = ['feat_a', 'feat_b', 'feat_c']
+        feature_names = ["feat_a", "feat_b", "feat_c"]
 
     env = MagicMock()
     obs_strategy = MagicMock()
@@ -30,11 +30,11 @@ def _make_vec_env(base_env, n_obs_features=3, n_steps=5):
     obs = np.zeros((1, n_obs_features), dtype=np.float32)
     vec_env.reset.return_value = obs
 
-    step_count = {'n': 0}
+    step_count = {"n": 0}
 
     def step(actions):
-        step_count['n'] += 1
-        done = step_count['n'] >= n_steps
+        step_count["n"] += 1
+        done = step_count["n"] >= n_steps
         return (
             np.zeros((1, n_obs_features), dtype=np.float32),
             np.array([1.0]),
@@ -49,9 +49,9 @@ def _make_vec_env(base_env, n_obs_features=3, n_steps=5):
 
 def _make_model(n_features=3):
     model = MagicMock()
-    model.__class__.__name__ = 'PPO'
+    model.__class__.__name__ = "PPO"
     model.predict.return_value = (np.array([0]), None)
-    model.device = 'cpu'
+    model.device = "cpu"
 
     # Setup policy for saliency (but we'll use correlation path in most tests)
     policy = MagicMock()
@@ -87,24 +87,24 @@ class TestAgentExplainer:
 
     def test_feature_importance_correlation_method(self):
         """Correlation method returns dict with feature scores."""
-        feature_names = ['feat_a', 'feat_b', 'feat_c']
+        feature_names = ["feat_a", "feat_b", "feat_c"]
         base_env = _make_base_env(feature_names)
         vec_env = _make_vec_env(base_env, n_obs_features=3, n_steps=10)
         model = _make_model(n_features=3)
 
         # Make model.predict return varying actions to allow correlation
-        call_count = {'n': 0}
+        call_count = {"n": 0}
         actions = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
 
         def predict(obs, **kwargs):
-            idx = min(call_count['n'], len(actions) - 1)
-            call_count['n'] += 1
+            idx = min(call_count["n"], len(actions) - 1)
+            call_count["n"] += 1
             return (np.array([actions[idx]]), None)
 
         model.predict.side_effect = predict
 
         explainer = AgentExplainer(model, vec_env)
-        result = explainer.analyze_feature_importance(top_k=3, method='correlation')
+        result = explainer.analyze_feature_importance(top_k=3, method="correlation")
         assert isinstance(result, dict)
         assert len(result) <= 3
 
@@ -118,8 +118,8 @@ class TestAgentExplainer:
         vec_env.envs = [env]
 
         model = MagicMock()
-        model.__class__.__name__ = 'PPO'
+        model.__class__.__name__ = "PPO"
         explainer = AgentExplainer(model, vec_env)
 
         with pytest.raises(NotImplementedError):
-            explainer.analyze_feature_importance(method='correlation')
+            explainer.analyze_feature_importance(method="correlation")

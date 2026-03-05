@@ -65,11 +65,11 @@ def add_symbol_column(
         >>> df = add_symbol_column(df, 'AAPL', position='start')
     """
     df_copy = df.copy()
-    df_copy['Symbol'] = symbol
+    df_copy["Symbol"] = symbol
 
-    if position == 'start':
+    if position == "start":
         # Move Symbol to first column
-        cols = ['Symbol'] + [col for col in df_copy.columns if col != 'Symbol']
+        cols = ["Symbol"] + [col for col in df_copy.columns if col != "Symbol"]
         df_copy = df_copy[cols]
 
     return df_copy
@@ -77,8 +77,8 @@ def add_symbol_column(
 
 def add_date_column_from_timestamp(
     df: pd.DataFrame,
-    timestamp_col: str = 'Timestamp',
-    date_col: str = 'Date',
+    timestamp_col: str = "Timestamp",
+    date_col: str = "Date",
 ) -> pd.DataFrame:
     """
     Add a Date column extracted from a Timestamp column.
@@ -114,7 +114,7 @@ def add_date_column_from_timestamp(
 
 def sort_by_timestamp(
     df: pd.DataFrame,
-    timestamp_col: str = 'Timestamp',
+    timestamp_col: str = "Timestamp",
     ascending: bool = True,
     reset_index: bool = True,
 ) -> pd.DataFrame:
@@ -151,7 +151,7 @@ def sort_by_timestamp(
 def convert_columns_to_numeric(
     df: pd.DataFrame,
     columns: Optional[List[str]] = None,
-    errors: str = 'coerce',
+    errors: str = "coerce",
 ) -> pd.DataFrame:
     """
     Convert specified columns to numeric types.
@@ -171,7 +171,7 @@ def convert_columns_to_numeric(
 
     # Auto-detect standard OHLCV columns if not specified
     if columns is None:
-        standard_ohlcv_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'Adj_close']
+        standard_ohlcv_cols = ["Open", "High", "Low", "Close", "Volume", "Adj_close"]
         columns = [col for col in standard_ohlcv_cols if col in df_copy.columns]
 
     for col in columns:
@@ -185,7 +185,7 @@ def standardize_ohlcv_dataframe(
     df: pd.DataFrame,
     column_mapping: Dict[str, str],
     symbol: Optional[str] = None,
-    timestamp_col: str = 'Timestamp',
+    timestamp_col: str = "Timestamp",
     add_date: bool = True,
     sort_data: bool = True,
     convert_numeric: bool = True,

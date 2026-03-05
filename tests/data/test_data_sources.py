@@ -610,7 +610,7 @@ class TestFMPDataSource:
         loader = FMPDataSource()
 
         # Mock the request wrapper's make_request method
-        with patch.object(loader._request_wrapper, 'make_request', return_value={"data": "test"}):
+        with patch.object(loader._request_wrapper, "make_request", return_value={"data": "test"}):
             result = loader._make_request("test-endpoint", {})
             assert result == {"data": "test"}
 
@@ -632,7 +632,7 @@ class TestFMPDataSource:
         loader = FMPDataSource()
 
         # Mock the request wrapper's make_request method
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_grades("AAPL")
 
             assert isinstance(df, pd.DataFrame)
@@ -647,7 +647,7 @@ class TestFMPDataSource:
         loader = FMPDataSource()
 
         # Mock the request wrapper to return empty list
-        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+        with patch.object(loader._request_wrapper, "make_request", return_value=[]):
             df = loader.get_historical_grades("AAPL")
 
             assert isinstance(df, pd.DataFrame)
@@ -674,7 +674,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_rating("AAPL")
 
             assert isinstance(df, pd.DataFrame)
@@ -688,7 +688,7 @@ class TestFMPDataSource:
         """Test get_historical_rating respects limit."""
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=[]) as mock_request:
+        with patch.object(loader._request_wrapper, "make_request", return_value=[]) as mock_request:
             loader.get_historical_rating("AAPL", limit=50)
 
             # Check that request was called (limit is passed in params to _make_request)
@@ -711,7 +711,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01")
 
             assert isinstance(df, pd.DataFrame)
@@ -736,7 +736,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_ohlcv_data("AAPL", start="2024-01-01", timeframe="5min")
 
             assert isinstance(df, pd.DataFrame)
@@ -763,7 +763,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_sector_performance("Energy")
 
             assert isinstance(df, pd.DataFrame)
@@ -779,7 +779,7 @@ class TestFMPDataSource:
         response."""
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+        with patch.object(loader._request_wrapper, "make_request", return_value=[]):
             df = loader.get_historical_sector_performance("Energy")
 
             assert isinstance(df, pd.DataFrame)
@@ -816,7 +816,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_historical_industry_performance("Biotechnology")
 
             assert isinstance(df, pd.DataFrame)
@@ -832,7 +832,7 @@ class TestFMPDataSource:
         response."""
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+        with patch.object(loader._request_wrapper, "make_request", return_value=[]):
             df = loader.get_historical_industry_performance("Biotechnology")
 
             assert isinstance(df, pd.DataFrame)
@@ -876,7 +876,7 @@ class TestFMPDataSource:
 
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_company_profile("AAPL")
 
             assert isinstance(df, pd.DataFrame)
@@ -891,7 +891,7 @@ class TestFMPDataSource:
         """Test get_company_profile handles empty response."""
         loader = FMPDataSource()
 
-        with patch.object(loader._request_wrapper, 'make_request', return_value=[]):
+        with patch.object(loader._request_wrapper, "make_request", return_value=[]):
             df = loader.get_company_profile("INVALID")
 
             assert isinstance(df, pd.DataFrame)
@@ -924,7 +924,7 @@ class TestFMPDataSource:
         loader = FMPDataSource()
 
         # Test with list input (should use first symbol)
-        with patch.object(loader._request_wrapper, 'make_request', return_value=mock_data):
+        with patch.object(loader._request_wrapper, "make_request", return_value=mock_data):
             df = loader.get_company_profile(["AAPL", "MSFT"])
 
             assert isinstance(df, pd.DataFrame)

@@ -8,24 +8,24 @@ import pytest
 from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
 DAILY_RESPONSE = {
-    'Meta Data': {
-        '1. Information': 'Daily Prices',
-        '2. Symbol': 'AAPL',
+    "Meta Data": {
+        "1. Information": "Daily Prices",
+        "2. Symbol": "AAPL",
     },
-    'Time Series (Daily)': {
-        '2023-01-03': {
-            '1. open': '130',
-            '2. high': '131',
-            '3. low': '129',
-            '4. close': '130.5',
-            '5. volume': '1000000',
+    "Time Series (Daily)": {
+        "2023-01-03": {
+            "1. open": "130",
+            "2. high": "131",
+            "3. low": "129",
+            "4. close": "130.5",
+            "5. volume": "1000000",
         },
-        '2023-01-04': {
-            '1. open': '131',
-            '2. high': '132',
-            '3. low': '130',
-            '4. close': '131.5',
-            '5. volume': '1100000',
+        "2023-01-04": {
+            "1. open": "131",
+            "2. high": "132",
+            "3. low": "130",
+            "4. close": "131.5",
+            "5. volume": "1100000",
         },
     },
 }
@@ -41,87 +41,87 @@ def _mock_response(json_data, status_code=200):
 
 class TestAlphaVantageDataLoaderInit:
     def test_api_key_from_constructor(self):
-        loader = AlphaVantageDataLoader(api_key='test_key')
-        assert loader.api_key == 'test_key'
+        loader = AlphaVantageDataLoader(api_key="test_key")
+        assert loader.api_key == "test_key"
 
     def test_default_rate_limit_delay(self):
-        loader = AlphaVantageDataLoader(api_key='key')
+        loader = AlphaVantageDataLoader(api_key="key")
         assert loader.rate_limit_delay == AlphaVantageDataLoader.DEFAULT_RATE_LIMIT_DELAY
 
     def test_source_name(self):
-        loader = AlphaVantageDataLoader(api_key='key')
-        assert loader.source_name == 'Alpha Vantage'
+        loader = AlphaVantageDataLoader(api_key="key")
+        assert loader.source_name == "Alpha Vantage"
 
     def test_is_connected_always_true(self):
-        loader = AlphaVantageDataLoader(api_key='key')
+        loader = AlphaVantageDataLoader(api_key="key")
         assert loader.is_connected() is True
 
     def test_connect_disconnect_no_error(self):
-        loader = AlphaVantageDataLoader(api_key='key')
+        loader = AlphaVantageDataLoader(api_key="key")
         loader.connect()
         loader.disconnect()
 
     def test_list_available_instruments_returns_empty(self):
-        loader = AlphaVantageDataLoader(api_key='key')
+        loader = AlphaVantageDataLoader(api_key="key")
         result = loader.list_available_instruments()
         assert result == []
 
 
 class TestGetHistoricalOHLCVData:
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_daily_data_returns_dataframe(self, mock_get):
         mock_get.return_value = _mock_response(DAILY_RESPONSE)
-        loader = AlphaVantageDataLoader(api_key='test_key', rate_limit_delay=0)
-        df = loader.get_historical_ohlcv_data('AAPL', timeframe='1d')
+        loader = AlphaVantageDataLoader(api_key="test_key", rate_limit_delay=0)
+        df = loader.get_historical_ohlcv_data("AAPL", timeframe="1d")
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
-        assert 'Close' in df.columns
+        assert "Close" in df.columns
 
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_empty_response_returns_empty_df(self, mock_get):
         mock_get.return_value = _mock_response({})
-        loader = AlphaVantageDataLoader(api_key='test_key', rate_limit_delay=0)
-        df = loader.get_historical_ohlcv_data('AAPL', timeframe='1d')
+        loader = AlphaVantageDataLoader(api_key="test_key", rate_limit_delay=0)
+        df = loader.get_historical_ohlcv_data("AAPL", timeframe="1d")
         assert isinstance(df, pd.DataFrame)
         assert df.empty
 
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_error_message_in_response_returns_empty(self, mock_get):
-        mock_get.return_value = _mock_response({'Error Message': 'Invalid API call'})
-        loader = AlphaVantageDataLoader(api_key='bad_key', rate_limit_delay=0)
-        df = loader.get_historical_ohlcv_data('AAPL', timeframe='1d')
+        mock_get.return_value = _mock_response({"Error Message": "Invalid API call"})
+        loader = AlphaVantageDataLoader(api_key="bad_key", rate_limit_delay=0)
+        df = loader.get_historical_ohlcv_data("AAPL", timeframe="1d")
         assert df.empty
 
     def test_invalid_timeframe_raises(self):
-        loader = AlphaVantageDataLoader(api_key='key')
+        loader = AlphaVantageDataLoader(api_key="key")
         with pytest.raises(Exception):
-            loader.get_historical_ohlcv_data('AAPL', timeframe='2w')
+            loader.get_historical_ohlcv_data("AAPL", timeframe="2w")
 
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_date_filtering_applied(self, mock_get):
         mock_get.return_value = _mock_response(DAILY_RESPONSE)
-        loader = AlphaVantageDataLoader(api_key='test_key', rate_limit_delay=0)
-        df = loader.get_historical_ohlcv_data('AAPL', start='2023-01-04', end='2023-12-31', timeframe='1d')
+        loader = AlphaVantageDataLoader(api_key="test_key", rate_limit_delay=0)
+        df = loader.get_historical_ohlcv_data("AAPL", start="2023-01-04", end="2023-12-31", timeframe="1d")
         assert isinstance(df, pd.DataFrame)
         # Only the 2023-01-04 row should remain
         assert len(df) == 1
 
 
 class TestMakeApiRequest:
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_returns_none_on_failure(self, mock_get):
         import requests as req
 
-        mock_get.side_effect = req.exceptions.ConnectionError('Network error')
-        loader = AlphaVantageDataLoader(api_key='key', max_retries=1, delay=0, rate_limit_delay=0)
-        result = loader._make_api_request('TIME_SERIES_DAILY', symbol='AAPL')
+        mock_get.side_effect = req.exceptions.ConnectionError("Network error")
+        loader = AlphaVantageDataLoader(api_key="key", max_retries=1, delay=0, rate_limit_delay=0)
+        result = loader._make_api_request("TIME_SERIES_DAILY", symbol="AAPL")
         assert result is None
 
-    @patch('quantrl_lab.data.sources.alpha_vantage_loader.requests.get')
+    @patch("quantrl_lab.data.sources.alpha_vantage_loader.requests.get")
     def test_rate_limit_note_triggers_retry(self, mock_get):
         """API Note about rate limit should retry and eventually return
         None."""
-        mock_get.return_value = _mock_response({'Note': 'Thank you for using Alpha Vantage! API call frequency'})
-        loader = AlphaVantageDataLoader(api_key='key', max_retries=2, delay=0, rate_limit_delay=0)
-        result = loader._make_api_request('TIME_SERIES_DAILY', symbol='AAPL')
+        mock_get.return_value = _mock_response({"Note": "Thank you for using Alpha Vantage! API call frequency"})
+        loader = AlphaVantageDataLoader(api_key="key", max_retries=2, delay=0, rate_limit_delay=0)
+        result = loader._make_api_request("TIME_SERIES_DAILY", symbol="AAPL")
         assert result is None

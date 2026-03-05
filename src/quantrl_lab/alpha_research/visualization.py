@@ -114,7 +114,7 @@ class AlphaVisualizer:
         ]
 
         if not completed:
-            ax.text(0.5, 0.5, "No data available", ha='center', va='center', fontsize=14, color=self.TEXT_MUTED)
+            ax.text(0.5, 0.5, "No data available", ha="center", va="center", fontsize=14, color=self.TEXT_MUTED)
             return fig
 
         # Sort by final return for better legend ordering
@@ -141,24 +141,24 @@ class AlphaVisualizer:
 
             # End marker
             ax.scatter(
-                [equity.index[-1]], [equity.iloc[-1]], color=color, s=60, edgecolor='white', linewidth=1.5, zorder=15
+                [equity.index[-1]], [equity.iloc[-1]], color=color, s=60, edgecolor="white", linewidth=1.5, zorder=15
             )
 
         # Breakeven line
-        ax.axhline(1.0, color=self.TEXT_MUTED, linestyle='--', linewidth=1, alpha=0.6, zorder=1)
+        ax.axhline(1.0, color=self.TEXT_MUTED, linestyle="--", linewidth=1, alpha=0.6, zorder=1)
         ax.text(
-            ax.get_xlim()[0], 1.0, ' Breakeven', va='bottom', ha='left', fontsize=8, color=self.TEXT_MUTED, alpha=0.8
+            ax.get_xlim()[0], 1.0, " Breakeven", va="bottom", ha="left", fontsize=8, color=self.TEXT_MUTED, alpha=0.8
         )
 
-        ax.set_title(title, fontsize=14, fontweight='bold', color=self.TEXT_PRIMARY)
+        ax.set_title(title, fontsize=14, fontweight="bold", color=self.TEXT_PRIMARY)
         ax.set_ylabel("Growth of $1", fontsize=10, color=self.TEXT_SECONDARY)
         ax.set_xlabel("")
 
         # Format y-axis as currency
-        ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('$%.2f'))
+        ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("$%.2f"))
 
         # Legend outside plot
-        ax.legend(loc='upper left', frameon=True, fancybox=True)
+        ax.legend(loc="upper left", frameon=True, fancybox=True)
 
         plt.tight_layout()
         return fig
@@ -189,17 +189,17 @@ class AlphaVisualizer:
             max_dd_idx = drawdown.idxmin()
             max_dd_val = drawdown.min() * 100
             ax.scatter(
-                [max_dd_idx], [max_dd_val], color=color, s=40, marker='v', edgecolor='white', linewidth=1, zorder=10
+                [max_dd_idx], [max_dd_val], color=color, s=40, marker="v", edgecolor="white", linewidth=1, zorder=10
             )
 
-        ax.axhline(0, color=self.TEXT_MUTED, linestyle='-', linewidth=0.8, alpha=0.5)
+        ax.axhline(0, color=self.TEXT_MUTED, linestyle="-", linewidth=0.8, alpha=0.5)
 
-        ax.set_title(title, fontsize=14, fontweight='bold', color=self.TEXT_PRIMARY)
+        ax.set_title(title, fontsize=14, fontweight="bold", color=self.TEXT_PRIMARY)
         ax.set_ylabel("Drawdown (%)", fontsize=10, color=self.TEXT_SECONDARY)
         ax.set_xlabel("")
         ax.yaxis.set_major_formatter(mtick.PercentFormatter(decimals=0))
 
-        ax.legend(loc='lower left', frameon=True, fancybox=True)
+        ax.legend(loc="lower left", frameon=True, fancybox=True)
 
         plt.tight_layout()
         return fig
@@ -222,7 +222,7 @@ class AlphaVisualizer:
                 )
 
         if not data:
-            ax.text(0.5, 0.5, "No data available", ha='center', va='center', fontsize=14, color=self.TEXT_MUTED)
+            ax.text(0.5, 0.5, "No data available", ha="center", va="center", fontsize=14, color=self.TEXT_MUTED)
             return fig
 
         # Sort by IC
@@ -236,21 +236,21 @@ class AlphaVisualizer:
         # Create gradient colors based on IC value
         colors = [self.ACCENT_POSITIVE if ic >= 0 else self.ACCENT_NEGATIVE for ic in ics]
 
-        bars = ax.barh(y_pos, ics, color=colors, alpha=0.8, height=0.6, edgecolor='none')
+        bars = ax.barh(y_pos, ics, color=colors, alpha=0.8, height=0.6, edgecolor="none")
 
         # Add value labels
         for i, (bar, ic) in enumerate(zip(bars, ics)):
             width = bar.get_width()
             offset = 0.003 if width >= 0 else -0.003
-            ha = 'left' if width >= 0 else 'right'
+            ha = "left" if width >= 0 else "right"
             ax.text(
                 width + offset,
                 bar.get_y() + bar.get_height() / 2,
-                f'{ic:.4f}',
+                f"{ic:.4f}",
                 ha=ha,
-                va='center',
+                va="center",
                 fontsize=9,
-                fontweight='bold',
+                fontweight="bold",
                 color=self.TEXT_PRIMARY,
             )
 
@@ -258,15 +258,15 @@ class AlphaVisualizer:
         ax.set_yticklabels(names, fontsize=9)
         ax.invert_yaxis()
 
-        ax.axvline(0, color=self.TEXT_MUTED, linestyle='-', linewidth=1, alpha=0.5)
+        ax.axvline(0, color=self.TEXT_MUTED, linestyle="-", linewidth=1, alpha=0.5)
 
-        ax.set_title(title, fontsize=14, fontweight='bold', color=self.TEXT_PRIMARY)
+        ax.set_title(title, fontsize=14, fontweight="bold", color=self.TEXT_PRIMARY)
         ax.set_xlabel("Information Coefficient", fontsize=10, color=self.TEXT_SECONDARY)
 
         # Remove top/right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
 
         plt.tight_layout()
         return fig
@@ -313,15 +313,15 @@ class AlphaVisualizer:
                 alpha=0.05,
             )
 
-        ax.axhline(0, color=self.TEXT_MUTED, linestyle='--', linewidth=1, alpha=0.6)
-        ax.axhline(1, color=self.ACCENT_POSITIVE, linestyle=':', linewidth=0.8, alpha=0.4)
-        ax.axhline(-1, color=self.ACCENT_NEGATIVE, linestyle=':', linewidth=0.8, alpha=0.4)
+        ax.axhline(0, color=self.TEXT_MUTED, linestyle="--", linewidth=1, alpha=0.6)
+        ax.axhline(1, color=self.ACCENT_POSITIVE, linestyle=":", linewidth=0.8, alpha=0.4)
+        ax.axhline(-1, color=self.ACCENT_NEGATIVE, linestyle=":", linewidth=0.8, alpha=0.4)
 
-        ax.set_title(f"{title} ({window}-day rolling)", fontsize=14, fontweight='bold', color=self.TEXT_PRIMARY)
+        ax.set_title(f"{title} ({window}-day rolling)", fontsize=14, fontweight="bold", color=self.TEXT_PRIMARY)
         ax.set_ylabel("Sharpe Ratio", fontsize=10, color=self.TEXT_SECONDARY)
         ax.set_xlabel("")
 
-        ax.legend(loc='upper left', frameon=True, fancybox=True)
+        ax.legend(loc="upper left", frameon=True, fancybox=True)
 
         plt.tight_layout()
         return fig
@@ -335,11 +335,11 @@ class AlphaVisualizer:
 
         if not completed:
             fig, ax = plt.subplots(figsize=figsize)
-            ax.text(0.5, 0.5, "No data available", ha='center', va='center')
+            ax.text(0.5, 0.5, "No data available", ha="center", va="center")
             return fig
 
         # Metrics to compare (normalized 0-1)
-        categories = ['Sharpe', 'Sortino', 'Win Rate', 'IC', 'Return']
+        categories = ["Sharpe", "Sortino", "Win Rate", "IC", "Return"]
         n_cats = len(categories)
 
         # Calculate angles for radar
@@ -354,11 +354,11 @@ class AlphaVisualizer:
         all_metrics = {cat: [] for cat in categories}
         for r in completed:
             m = r.metrics
-            all_metrics['Sharpe'].append(m.get('sharpe_ratio', 0))
-            all_metrics['Sortino'].append(m.get('sortino_ratio', 0))
-            all_metrics['Win Rate'].append(m.get('win_rate', 0))
-            all_metrics['IC'].append(m.get('ic', 0))
-            all_metrics['Return'].append(m.get('total_return', 0))
+            all_metrics["Sharpe"].append(m.get("sharpe_ratio", 0))
+            all_metrics["Sortino"].append(m.get("sortino_ratio", 0))
+            all_metrics["Win Rate"].append(m.get("win_rate", 0))
+            all_metrics["IC"].append(m.get("ic", 0))
+            all_metrics["Return"].append(m.get("total_return", 0))
 
         def normalize(val, vals):
             min_v, max_v = min(vals), max(vals)
@@ -369,11 +369,11 @@ class AlphaVisualizer:
         for i, result in enumerate(completed[:6]):  # Limit to 6 strategies
             m = result.metrics
             values = [
-                normalize(m.get('sharpe_ratio', 0), all_metrics['Sharpe']),
-                normalize(m.get('sortino_ratio', 0), all_metrics['Sortino']),
-                normalize(m.get('win_rate', 0), all_metrics['Win Rate']),
-                normalize(m.get('ic', 0), all_metrics['IC']),
-                normalize(m.get('total_return', 0), all_metrics['Return']),
+                normalize(m.get("sharpe_ratio", 0), all_metrics["Sharpe"]),
+                normalize(m.get("sortino_ratio", 0), all_metrics["Sortino"]),
+                normalize(m.get("win_rate", 0), all_metrics["Win Rate"]),
+                normalize(m.get("ic", 0), all_metrics["IC"]),
+                normalize(m.get("total_return", 0), all_metrics["Return"]),
             ]
             values += values[:1]
 
@@ -387,12 +387,12 @@ class AlphaVisualizer:
         ax.set_xticklabels(categories, fontsize=10, color=self.TEXT_PRIMARY)
         ax.set_ylim(0, 1)
         ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-        ax.set_yticklabels(['25%', '50%', '75%', '100%'], fontsize=8, color=self.TEXT_MUTED)
-        ax.grid(color=self.BG_ELEVATED, linestyle='-', linewidth=0.5)
+        ax.set_yticklabels(["25%", "50%", "75%", "100%"], fontsize=8, color=self.TEXT_MUTED)
+        ax.grid(color=self.BG_ELEVATED, linestyle="-", linewidth=0.5)
 
-        ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0), frameon=True, fancybox=True)
+        ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0), frameon=True, fancybox=True)
 
-        plt.title(title, fontsize=14, fontweight='bold', color=self.TEXT_PRIMARY, pad=20)
+        plt.title(title, fontsize=14, fontweight="bold", color=self.TEXT_PRIMARY, pad=20)
         plt.tight_layout()
         return fig
 
@@ -410,7 +410,7 @@ class AlphaVisualizer:
             return
 
         # ── Summary stats from the top performer by Sharpe ──────────────────
-        best = max(completed, key=lambda r: r.metrics.get('sharpe_ratio', -999))
+        best = max(completed, key=lambda r: r.metrics.get("sharpe_ratio", -999))
         best_m = best.metrics
         best_label = f"{best.job.indicator_name} | {best.job.strategy_name}"
 
@@ -444,7 +444,7 @@ class AlphaVisualizer:
                     y=equity,
                     name=f"{label}  {final_ret:+.1f}%",
                     line=dict(color=color, width=2),
-                    fill='tonexty' if i == 0 else None,
+                    fill="tonexty" if i == 0 else None,
                     fillcolor=f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.06)",
                     hovertemplate="%{x|%Y-%m-%d}<br>Growth: $%{y:.3f}<extra>" + label + "</extra>",
                 )
@@ -467,7 +467,7 @@ class AlphaVisualizer:
                     y=dd,
                     name=label,
                     line=dict(color=color, width=1.5),
-                    fill='tozeroy',
+                    fill="tozeroy",
                     fillcolor=f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.15)",
                     hovertemplate="%{x|%Y-%m-%d}<br>Drawdown: %{y:.2f}%<extra>" + label + "</extra>",
                 )
@@ -513,10 +513,10 @@ class AlphaVisualizer:
             go.Bar(
                 x=[d["ic"] for d in ic_data],
                 y=[d["label"] for d in ic_data],
-                orientation='h',
+                orientation="h",
                 marker_color=ic_colors,
                 text=[f'{d["ic"]:.4f}' for d in ic_data],
-                textposition='outside',
+                textposition="outside",
                 hovertemplate="%{y}<br>IC: %{x:.4f}<extra></extra>",
             )
         )
@@ -528,19 +528,19 @@ class AlphaVisualizer:
         fig_sc = go.Figure()
         for i, r in enumerate(completed):
             m = r.metrics
-            ic_val = m.get('ic', 0)
-            sharpe_val = m.get('sharpe_ratio', 0)
+            ic_val = m.get("ic", 0)
+            sharpe_val = m.get("sharpe_ratio", 0)
             label = f"{r.job.indicator_name} | {r.job.strategy_name}"
             color = self.PALETTE[i % len(self.PALETTE)]
             fig_sc.add_trace(
                 go.Scatter(
                     x=[ic_val],
                     y=[sharpe_val],
-                    mode='markers+text',
+                    mode="markers+text",
                     name=label,
-                    marker=dict(color=color, size=12, line=dict(color='white', width=1)),
+                    marker=dict(color=color, size=12, line=dict(color="white", width=1)),
                     text=[r.job.indicator_name],
-                    textposition='top center',
+                    textposition="top center",
                     textfont=dict(size=9),
                     hovertemplate=(
                         f"<b>{label}</b><br>"
@@ -565,10 +565,10 @@ class AlphaVisualizer:
 
         # ── Metrics table rows (sorted by Sharpe desc) ───────────────────────
         table_rows = ""
-        for r in sorted(completed, key=lambda x: x.metrics.get('sharpe_ratio', -999), reverse=True):
+        for r in sorted(completed, key=lambda x: x.metrics.get("sharpe_ratio", -999), reverse=True):
             m = r.metrics
-            sharpe = m.get('sharpe_ratio', 0)
-            ret = m.get('total_return', 0)
+            sharpe = m.get("sharpe_ratio", 0)
+            ret = m.get("total_return", 0)
             sharpe_color = self.ACCENT_POSITIVE if sharpe > 0 else self.ACCENT_NEGATIVE
             ret_color = self.ACCENT_POSITIVE if ret > 0 else self.ACCENT_NEGATIVE
             table_rows += f"""
@@ -834,6 +834,6 @@ class AlphaVisualizer:
         """Convert matplotlib figure to base64 string with high
         quality."""
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", dpi=150, facecolor=self.BG_DARK, edgecolor='none')
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=150, facecolor=self.BG_DARK, edgecolor="none")
         buf.seek(0)
         return base64.b64encode(buf.read()).decode("utf-8")

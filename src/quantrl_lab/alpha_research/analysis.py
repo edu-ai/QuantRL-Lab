@@ -213,7 +213,7 @@ class RobustnessTester:
 
         # Normalize index to string for better plotting if it's datetime
         if isinstance(period_df.index, pd.DatetimeIndex):
-            period_df.index = period_df.index.strftime('%Y-%m-%d')
+            period_df.index = period_df.index.strftime("%Y-%m-%d")
 
         period_df[metrics].plot(kind="bar", ax=ax)
         ax.set_title(title)

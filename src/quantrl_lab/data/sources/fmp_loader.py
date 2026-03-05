@@ -95,7 +95,7 @@ class FMPDataSource(
         Raises:
             requests.HTTPError: If the request fails after retries.
         """
-        params['apikey'] = self.api_key
+        params["apikey"] = self.api_key
         url = f"{self.BASE_URL}/{endpoint}"
 
         return self._request_wrapper.make_request(
@@ -153,19 +153,19 @@ class FMPDataSource(
             return df
 
         column_mapping = {
-            'date': 'Timestamp',
-            'open': 'Open',
-            'high': 'High',
-            'low': 'Low',
-            'close': 'Close',
-            'volume': 'Volume',
+            "date": "Timestamp",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
         }
 
         df = standardize_ohlcv_dataframe(
             df,
             column_mapping=column_mapping,
             symbol=symbol,
-            timestamp_col='Timestamp',
+            timestamp_col="Timestamp",
             add_date=True,
             sort_data=True,
             convert_numeric=True,
@@ -237,19 +237,19 @@ class FMPDataSource(
             return df
 
         column_mapping = {
-            'date': 'Timestamp',
-            'open': 'Open',
-            'high': 'High',
-            'low': 'Low',
-            'close': 'Close',
-            'volume': 'Volume',
+            "date": "Timestamp",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
         }
 
         df = standardize_ohlcv_dataframe(
             df,
             column_mapping=column_mapping,
             symbol=symbol,
-            timestamp_col='Timestamp',
+            timestamp_col="Timestamp",
             add_date=True,
             sort_data=True,
             convert_numeric=True,
@@ -283,9 +283,9 @@ class FMPDataSource(
             logger.warning(f"Empty grades dataset returned for symbol: {symbol}")
             return pd.DataFrame()
 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-            df.sort_values('date', inplace=True)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
 
         logger.success(
             "Fetched {n} historical grades for {symbol}",
@@ -321,9 +321,9 @@ class FMPDataSource(
             logger.warning(f"Empty ratings dataset returned for symbol: {symbol}")
             return pd.DataFrame()
 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-            df.sort_values('date', inplace=True)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
 
         logger.success(
             "Fetched {n} historical ratings for {symbol}",
@@ -384,9 +384,9 @@ class FMPDataSource(
             logger.warning(f"Empty sector performance dataset returned for sector: {sector}")
             return pd.DataFrame()
 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-            df.sort_values('date', inplace=True)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
 
         log_dataframe_info(df, "Fetched sector performance", symbol=sector)
 
@@ -449,9 +449,9 @@ class FMPDataSource(
             logger.warning(f"Empty industry performance dataset returned for industry: {industry}")
             return pd.DataFrame()
 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-            df.sort_values('date', inplace=True)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df.sort_values("date", inplace=True)
 
         log_dataframe_info(df, "Fetched industry performance", symbol=industry)
 
@@ -522,9 +522,9 @@ class FMPDataSource(
             return pd.DataFrame()
 
         if not df.empty:
-            company_name = df.iloc[0].get('companyName', 'Unknown')
-            sector = df.iloc[0].get('sector', 'N/A')
-            industry = df.iloc[0].get('industry', 'N/A')
+            company_name = df.iloc[0].get("companyName", "Unknown")
+            sector = df.iloc[0].get("sector", "N/A")
+            industry = df.iloc[0].get("industry", "N/A")
 
             logger.success(
                 "Fetched company profile for {symbol}: {name} ({sector} - {industry})",
