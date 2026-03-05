@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-05
+
 ### Added
 
 - **New reward strategies** (`src/quantrl_lab/environments/stock/strategies/rewards/`):
@@ -132,5 +134,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example notebooks for backtesting, feature selection, and tuning
 - API documentation
 
-[Unreleased]: https://github.com/whanyu1212/QuantRL-Lab/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/whanyu1212/QuantRL-Lab/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/whanyu1212/QuantRL-Lab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/whanyu1212/QuantRL-Lab/releases/tag/v0.1.0

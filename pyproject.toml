@@ -1,6 +1,6 @@
 [project]
 name = "quantrl-lab"
-version = "0.1.0"
+version = "0.2.0"
 description = "A lightweight Python library for developing and backtesting RL Agents in financial markets"
 authors = [
     {name = "whanyu1212", email = "whanyu1212@hotmail.com"}
