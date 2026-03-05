@@ -4,68 +4,50 @@
 [![Python](https://img.shields.io/pypi/pyversions/quantrl-lab.svg)](https://pypi.org/project/quantrl-lab/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://whanyu1212.github.io/QuantRL-Lab/)
+[![Coverage](https://img.shields.io/badge/coverage-76%25-brightgreen)](https://github.com/whanyu1212/QuantRL-Lab)
 
-A Python testbed for Reinforcement Learning in finance, designed to enable researchers and developers to experiment with and evaluate RL algorithms in financial contexts. The project emphasizes modularity and configurability, allowing users to tailor the environment, data sources, and algorithmic settings to their specific needs.
+A Python testbed for Reinforcement Learning in finance. Emphasizes modularity via dependency injection of pluggable action, observation, and reward strategies — enabling rapid experimentation without rewriting environment code. For full API reference, guides, and examples see the [**documentation**](https://whanyu1212.github.io/QuantRL-Lab/).
 
-## Installation
-
-### Quick Start (Core Dependencies Only)
-
-```bash
-# Using pip
-pip install quantrl-lab
-
-# Using uv (recommended - much faster)
-uv pip install quantrl-lab
-```
-
-This installs only essential runtime dependencies (~72 packages). For additional features:
-
-```bash
-# Jupyter notebook support
-pip install quantrl-lab[notebooks]
-
-# ML/LLM features (torch, transformers, litellm, openai)
-pip install quantrl-lab[ml]
-
-# Development tools (pytest, black, mypy, etc.)
-pip install quantrl-lab[dev]
-
-# Everything
-pip install quantrl-lab[full]
-```
-
-**For contributors**: See [MIGRATION.md](MIGRATION.md) for complete uv workflow and development setup.
+---
 
 ## Table of Contents
+
 - [Installation](#installation)
 - [Motivation](#motivation)
 - [Quick Start](#quick-start)
-- [Architecture](#architecture)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
+- [Literature Review](#literature-review)
+
+---
+
+## Installation
+
+```bash
+pip install quantrl-lab
+# or (recommended)
+uv pip install quantrl-lab
+```
+
+Optional extras:
+
+```bash
+pip install quantrl-lab[notebooks]   # Jupyter support
+pip install quantrl-lab[ml]          # torch, transformers, litellm
+pip install quantrl-lab[dev]         # pytest, black, mypy, etc.
+pip install quantrl-lab[full]        # everything
+```
+
+**Contributors**: see [CONTRIBUTING.md](CONTRIBUTING.md) for the uv-based development setup.
 
 ---
 
 ## Motivation
 
-**Addressing the Monolithic Environment Problem**
+Most RL frameworks for finance hardcode action spaces, observation spaces, and reward functions into the environment. This makes experimentation slow — changing a reward function can require significant refactoring.
 
-Most existing RL frameworks for finance suffer from tightly coupled, monolithic designs where action spaces, observation spaces, and reward functions are hardcoded into the environment initialization. This creates several critical limitations:
-
-- **Limited Experimentation**: Users cannot easily test different reward formulations or action spaces without doing a lot of rewriting of the environments
-- **Poor Scalability**: Adding new asset classes, trading strategies, or market conditions requires significant code restructuring
-- **Reduced Reproducibility**: Inconsistent interfaces across different environment configurations make fair comparisons difficult
-- **Development Overhead**: Simple modifications like testing different reward functions or adding new observation features require extensive refactoring
-
-**QuantRL-Lab's Solution**: Dependency injection of pluggable strategies (action/observation/reward) decouples environment logic from algorithmic choices, enabling rapid experimentation without code rewrites.
-
----
-
-## Quick Start
----
-
+**QuantRL-Lab** solves this with a strategy injection pattern: pass three pluggable objects at environment instantiation time and swap them freely without touching environment internals.
 
 ---
 
@@ -73,230 +55,107 @@ Most existing RL frameworks for finance suffer from tightly coupled, monolithic 
 
 ### System Workflow
 
-End-to-end process from data acquisition to model evaluation:
-
 ```mermaid
 flowchart TB
-    A[Fetch Historical Data] --> B[Configure Pipeline]
+    A[Fetch Historical Data] --> B[Data Pipeline]
 
-    B --> C[Compute Indicators: RSI, MACD, MAC, BB etc.]
+    subgraph B[Data Pipeline]
+        direction TB
+        P1[Technical Indicators: RSI, MACD, BB, etc.] --> P2[Analyst Estimates]
+        P2 --> P3[Market Context: Sector / Industry]
+        P3 --> P4[News Sentiment Enrichment]
+        P4 --> P5[Numeric Conversion & Cleanup]
+        P5 --> P6[Cross-Sectional Features]
+    end
 
-    C --> D[Instantiate Environment with Strategies]
-
+    B --> D[Instantiate Environment with Strategies]
     D --> E[Action Strategy]
     D --> F[Observation Strategy]
     D --> G[Reward Strategy]
-
     E --> H
     F --> H
     G --> H
-
-    H[Train RL Agent: PPO/SAC/A2C] --> I[Evaluate vs Benchmarks]
-
-    I --> J[Analyze Results]
-
+    H[Train RL Agent: PPO / SAC / A2C] --> I[Evaluate vs Benchmarks]
+    I --> J[Analyse Results]
     J --> K{Iterate?}
-
     K -->|Yes| B
     K -->|No| L[End]
-
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style C fill:#f3e5f5
-    style D fill:#e8f5e8
-    style E fill:#e8f5e8
-    style F fill:#e8f5e8
-    style G fill:#e8f5e8
-    style H fill:#fce4ec
-    style I fill:#e0f2f1
-    style J fill:#f1f8e9
-    style K fill:#fce4ec
-    style L fill:#c8e6c9
 ```
 
-### Example Usage
+### Example
 
 ```python
-# Easily swappable strategies for experimentation
-# For in-depth example, see notebooks/backtesting_example.ipynb
+from stable_baselines3 import PPO, SAC
+from quantrl_lab.environments.stock.strategies.actions.standard import StandardActionStrategy
+from quantrl_lab.environments.stock.strategies.observations.feature_aware import FeatureAwareObservationStrategy
+from quantrl_lab.environments.stock.strategies.rewards.portfolio_value import PortfolioValueChangeReward
+from quantrl_lab.experiments.backtesting.builder import BacktestEnvironmentBuilder
+from quantrl_lab.experiments.backtesting.core import ExperimentJob, JobGenerator
+from quantrl_lab.experiments.backtesting.runner import BacktestRunner
 
-sample_env_config = BacktestRunner.create_env_config_factory(
-    train_data=train_data_df,
-    test_data=test_data_df,
-    action_strategy=action_strategy,
-    reward_strategy=reward_strategies["conservative"],
-    observation_strategy=observation_strategy,
-    initial_balance=100000.0,
-    transaction_cost_pct=0.001,
-    window_size=20
+# Instantiate pluggable strategies
+action_strategy = StandardActionStrategy()
+reward_strategy = PortfolioValueChangeReward()
+observation_strategy = FeatureAwareObservationStrategy()
+
+# Build environment config (train_df / test_df are pre-processed DataFrames)
+env_config = (
+    BacktestEnvironmentBuilder()
+    .with_data(train_data=train_df, test_data=test_df)
+    .with_strategies(
+        action=action_strategy,
+        reward=reward_strategy,
+        observation=observation_strategy,
+    )
+    .with_env_params(initial_balance=100_000, window_size=20)
+    .build()
 )
 
-runner = BacktestRunner(verbose=1)
+runner = BacktestRunner(verbose=True)
 
-# Single experiment
-results = runner.run_single_experiment(
-    SAC,          # Algorithm to use
-    sample_env_config,
-    # config=custom_sac_config,  # optional custom config
-    total_timesteps=50000,
-    num_eval_episodes=3
+# Single run
+job = ExperimentJob(algorithm_class=PPO, env_config=env_config, total_timesteps=50_000)
+result = runner.run_job(job)
+BacktestRunner.inspect_result(result)
+
+# Grid sweep across algorithms
+jobs = JobGenerator.generate_grid(
+    algorithms=[PPO, SAC],
+    env_configs={'base': env_config},
+    total_timesteps=50_000,
 )
-
-BacktestRunner.inspect_single_experiment(results)
-
-# Comprehensive sweep across multiple algorithms and presets
-presets = ["default", "explorative", "conservative"]
-algorithms = [PPO, A2C, SAC]
-
-comprehensive_results = runner.run_comprehensive_backtest(
-    algorithms=algorithms,
-    env_configs=env_configs,
-    presets=presets,
-    # custom_configs=custom_configs,  # either use presets or customize
-    total_timesteps=50000,
-    n_envs=4,
-    num_eval_episodes=3
-)
+results = runner.run_batch(jobs)
+BacktestRunner.inspect_batch(results)
 ```
-
-**Detailed tutorials:**
-- Feature and window size selection: [`notebooks/feature_selection.ipynb`](notebooks/feature_selection.ipynb)
-- Data processing example: [`notebooks/data_processing.ipynb`](notebooks/data_processing.ipynb)
-- Backtesting: [`notebooks/backtesting_example.ipynb`](notebooks/backtesting_example.ipynb)
-- Hyperparameter tuning: [`notebooks/hyperparameter_tuning.ipynb`](notebooks/hyperparameter_tuning.ipynb)
-- LLM hedge pair screener: [`notebooks/llm_hedge_screener.ipynb`](notebooks/llm_hedge_screener.ipynb)
-
----
-
-## Architecture
-
-For detailed architecture documentation, design patterns, and system diagrams, see the [**Architecture Guide**](docs/ARCHITECTURE.md):
-
-- 🔄 **Workflow Overview** - End-to-end experimental loop
-- 🏗️ **High-Level Architecture** - Layered system design (Data/Environment/Experiment/Utilities layers)
-- 🔌 **Strategy Pattern** - How pluggable strategies interact with environments
-- 📊 **Data Flow Pipeline** - Complete transformation from raw sources to RL agent
-- 🧩 **Pre-built Components** - Out-of-the-box action/observation/reward strategies
-- 🔧 **Extensibility Guide** - How to create custom strategies
-- 🔍 **Protocol Pattern** - Structural typing for flexible data sources
-- 📋 **Registry Pattern** - Technical indicator management
-- ⚡ **Reward Strategy Pattern** - Decoupled reward function experimentation
 
 ---
 
 ## Roadmap
 
-- **Data Source Expansion**:
-  - Complete integration for more (free) data sources
-  - Add crypto data support
-  - Add OANDA forex data support
-- **Technical Indicators**:
-  - Add more indicators (Ichimoku, Williams %R, CCI, etc.)
-- **Trading Environments**:
-  - (In-progress) Multi-stock trading environment with hedging pair capabilities
-- **Alternative Data for consideration in observable space**:
-  - Fundamental data (earnings, balance sheets, income statements, cash flow)
-  - Macroeconomic indicators (GDP, inflation, unemployment, interest rates)
-  - Economic calendar events
-  - Sector performance data
-
----
-
-### Development Setup
-
-> **Note:** This section is for developers who want to contribute to QuantRL-Lab or run it from source. If you just want to use the library, simply install it with `pip install quantrl-lab`.
-
-#### For Contributors and Developers
-
-1. Clone the Repository
-```bash
-git clone https://github.com/whanyu1212/QuantRL-Lab.git
-cd QuantRL-Lab
-```
-
-2. Install Poetry for dependency management
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
-
-3. Install dependencies (installs the project in development mode)
-```bash
-poetry install
-```
-
-4. Activate virtual environment
-```bash
-# The shell command is deprecated, use this instead:
-poetry env info  # This shows the venv path
-# Then activate it manually, e.g.:
-source /path/to/virtualenv/bin/activate  # macOS/Linux
-```
-
-5. (Optional) Install jupyter kernel for notebook examples
-```bash
-python -m ipykernel install --user --name quantrl-lab --display-name "QuantRL-Lab"
-```
-
-6. Set up environment variables (for data sources like Alpaca, Alpha Vantage, etc.)
-```bash
-# Copy the example environment file
-cp .env.example .env
-
-# Edit .env and add your API keys
-# Never commit the .env file to version control
-```
-
-7. Set up pre-commit hooks (for code quality)
-```bash
-# Install the git hooks
-pre-commit install
-
-# (Optional) Run on all files to test
-pre-commit run --all-files
-```
-
-The pre-commit hooks will automatically check:
-- Code formatting (black)
-- Import sorting (isort)
-- Code linting (flake8)
-- Docstring formatting (docformatter)
-- File checks (trailing whitespace, YAML validation, etc.)
-
-To skip pre-commit hooks temporarily:
-```bash
-git commit -m "your message" --no-verify
-```
+- **Data sources**: crypto and OANDA forex support
+- **Environments**: multi-stock environment (in progress)
+- **Observable space**: macroeconomic indicators integration
+- **Hyperparameter tuning**: expand Optuna search spaces and pruning strategies
+- **Live trading**: extended order types and position management for the Alpaca deployment client
+- **Paper trading**: end-to-end deployment boilerplate for running trained agents in paper trading mode
 
 ---
 
 ## Contributing
 
-We welcome contributions from the community! Whether you're fixing bugs, adding features, improving documentation, or suggesting ideas, your help is appreciated.
+1. Fork the repository and create a feature branch
+2. Make changes following the coding standards in [CONTRIBUTING.md](CONTRIBUTING.md)
+3. Write tests for new functionality (`uv run pytest -m "not integration"`)
+4. Run `pre-commit run --all-files` before submitting
+5. Open a pull request with a clear description
 
-### How to Contribute
+### AI-Assisted Development
 
-1. **Fork the repository** and create a branch for your feature or fix
-2. **Make your changes** following our coding standards
-3. **Write tests** for new functionality
-4. **Submit a pull request** with a clear description
-
-Please read our [Contributing Guide](CONTRIBUTING.md) for detailed instructions on:
-- Setting up your development environment
-- Coding standards and style guidelines
-- Testing requirements
-- Pull request process
-
-### Code of Conduct
-
-Be respectful, inclusive, and constructive. We're all here to learn and build something great together!
+If you use AI coding tools, [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) contain project context that helps models understand the codebase architecture and conventions. That said, the general rule of thumb is: **take ownership of what you submit**. Understand the code, test it, and don't ship AI slop.
 
 ---
 
 ## Contributors
-
-This project exists thanks to all the people who contribute.
-
-### Main Contributors
 
 <table>
   <tr>
@@ -312,11 +171,76 @@ This project exists thanks to all the people who contribute.
   </tr>
 </table>
 
-### How to Become a Contributor
-
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) to get started.
-
 ---
 
-### Literature Review
-placeholder
+## Literature Review
+
+[1] AI4Finance Foundation, "FinRL: Financial Reinforcement Learning," https://github.com/AI4Finance-Foundation/FinRL, 2021.
+
+[2] AI4Finance Foundation, "FinRL-Meta: A Universe of Near-Real-Market Environments for Data-Driven Financial Reinforcement Learning," https://github.com/AI4Finance-Foundation/FinRL-Meta, 2022.
+
+[3] Alpaca Markets, "Alpaca-py Stock Trading Basic Examples," https://github.com/alpacahq/alpaca-py/blob/master/examples/stocks/stocks-trading-basic.ipynb, Example notebook demonstrating order types and trading capabilities in Alpaca's Python API, 2024.
+
+[4] Alpha Vantage Inc., "Alpha Vantage Premium API Plans," https://www.alphavantage.co/premium/, API pricing tiers showing free tier limitation of 25 API calls per day, 2025.
+
+[5] Y. Bai, Y. Gao, R. Wan, S. Zhang, and R. Song, "A Review of Reinforcement Learning in Financial Applications," arXiv preprint arXiv:2309.17032, 2023.
+
+[6] C. Berner, G. Brockman, B. Chan, V. Cheung, P. Dębiak, C. Dennison, D. Farhi, Q. Fischer, S. Hashme, C. Hesse, et al., "Dota 2 with Large Scale Deep Reinforcement Learning," arXiv preprint arXiv:1912.06680, 2019.
+
+[7] N. T. Chan and C. Shelton, "An Electronic Market-Maker," MIT AI Lab Technical Report, 2001.
+
+[8] Farama Foundation, "Gymnasium: A Standard API for Reinforcement Learning," https://github.com/Farama-Foundation/Gymnasium, Accessed: 2025-10-18, 2024.
+
+[9] M. Fedorov et al., "Gym-AnyTrading: Trading Gym Environments," https://github.com/AminHP/gym-anytrading, 2019.
+
+[10] Financial Modeling Prep, "FMP API Documentation," https://site.financialmodelingprep.com/developer/docs, Accessed: 2025-10-18, 2024.
+
+[11] T. G. Fischer, "Reinforcement Learning in Financial Markets — a Survey," FAU Discussion Papers in Economics No. 12/2018, Friedrich-Alexander University Erlangen-Nürnberg, 2018.
+
+[12] M. Fortier, "Deep Reinforcement Learning for Automated Stock Trading: An Ensemble Strategy," in Proc. AAAI Workshop on Knowledge Discovery from Unstructured Data in Financial Services, 2020.
+
+[13] HKUDS, "StockAgent: Deep RL-based Stock Trading Using Multi-Agent LLM Framework," https://github.com/HKUDS/StockAgent, 2024.
+
+[14] Investopedia, "Sortino Ratio: Definition, Formula, Calculation, and Example," https://www.investopedia.com/terms/s/sortinoratio.asp, Accessed: 2025-10-18, 2024.
+
+[15] K. Johnson, "Stable-Baselines3: Reliable Reinforcement Learning Implementations," https://stable-baselines3.readthedocs.io, Accessed: 2025-10-18, 2024.
+
+[16] S. Kamon and S. Faragli, "Reinforcement Learning for Quantitative Trading," arXiv preprint arXiv:2109.13851, 2021.
+
+[17] A. King, J. Kelly, and A. Keane, "Comparative Analysis of Reinforcement Learning Algorithms for Stock Trading," in Proc. IEEE Symposium Series on Computational Intelligence (SSCI), 2022.
+
+[18] J. Lehtosalo, I. Levkivskyi, and G. van Rossum, "PEP 544 — Protocols: Structural Subtyping (Static Duck Typing)," Python Enhancement Proposals, 2019.
+
+[19] X.-Y. Liu, Z. Xia, H. Yang, J. Gao, D. Zha, M. Zhu, C. Wang, T. Wang, and J. Guo, "FinRL-Meta: Market Environments and Benchmarks for Data-Driven Financial Reinforcement Learning," arXiv:2307.00343, 2023.
+
+[20] X.-Y. Liu, H. Yang, J. Gao, and C. Wang, "FinRL: Deep Reinforcement Learning Framework to Automate Trading in Quantitative Finance," arXiv:1811.07522, 2021.
+
+[21] S. Milani, N. Topin, M. Veloso, and F. Fang, "A Survey of Explainable Reinforcement Learning," arXiv preprint arXiv:2202.08434, 2022.
+
+[22] S. Milani, N. Topin, M. Veloso, and F. Fang, "Explainable Reinforcement Learning: A Survey and Comparative Review," ACM Computing Surveys, Carnegie Mellon University and J.P. Morgan AI Research, 2024.
+
+[23] J. Moody and M. Saffell, "Reinforcement Learning for Trading," Advances in Neural Information Processing Systems, 1999.
+
+[24] J. Moody and M. Saffell, "Learning to Trade via Direct Reinforcement," IEEE Transactions on Neural Networks, vol. 12, no. 4, pp. 875–889, 2001.
+
+[25] NOF1.ai, "Alpha Arena: AI Trading Competition," https://nof1.ai/, Platform for evaluating AI agents in quantitative trading, 2024.
+
+[26] J. Oh, J. Lee, J. W. Lee, and B.-T. Zhang, "Adaptive Stock Trading with Dynamic Asset Allocation Using Reinforcement Learning," Information Sciences, vol. 176, no. 15, pp. 2121–2147, 2006.
+
+[27] Permutable AI, "AI in Financial Markets Evolution," https://permutable.ai/ai-in-financial-markets-evolution/, Accessed: 2024-09-28, 2024.
+
+[28] N. Pippas, E. A. Ludvig, and C. Turkay, "The Evolution of Reinforcement Learning in Quantitative Finance: A Survey," 2023.
+
+[29] Rockflow, "RockAlpha: AI Trading Benchmark and Tracker," https://rockalpha.rockflow.ai/, Platform for benchmarking and tracking AI trading performance across different assets, 2025.
+
+[30] J. Schrittwieser, I. Antonoglou, T. Hubert, K. Simonyan, L. Sifre, A. Guez, E. Lockhart, D. Hassabis, T. Graepel, T. Lillicrap, et al., "Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model," Nature, vol. 588, no. 7839, pp. 604–609, 2020.
+
+[31] D. Silver, A. Huang, C. J. Maddison, A. Guez, L. Sifre, G. Van Den Driessche, J. Schrittwieser, I. Antonoglou, V. Panneershelvam, M. Lanctot, et al., "Mastering the Game of Go with Deep Neural Networks and Tree Search," Nature, vol. 529, no. 7587, pp. 484–489, 2016.
+
+[32] D. Silver, J. Schrittwieser, K. Simonyan, I. Antonoglou, A. Huang, A. Guez, T. Hubert, L. Baker, M. Lai, A. Bolton, et al., "Mastering the Game of Go without Human Knowledge," Nature, vol. 550, no. 7676, pp. 354–359, 2017.
+
+[33] S. Sun, M. Qin, X. Wang, and B. An, "Prudex-Compass: Towards Systematic Evaluation of Reinforcement Learning in Financial Markets," 2023.
+
+[34] T. Team, "TradeMaster: A Holistic Quantitative Trading Platform Empowered by Reinforcement Learning," https://github.com/TradeMaster-NTU/TradeMaster, 2022.
+
+[35] O. Vinyals, I. Babuschkin, W. M. Czarnecki, M. Mathieu, A. Dudzik, J. Chung, D. H. Choi, R. Powell, T. Ewalds, P. Georgiev, et al., "Grandmaster Level in StarCraft II Using Multi-Agent Reinforcement Learning," Nature, vol. 575, no. 7782, pp. 350–354, 2019.

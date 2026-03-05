@@ -1,5 +1,5 @@
-from quantrl_lab.environments.base.actions import Actions
-from quantrl_lab.environments.stock.stock_portfolio import StockPortfolio
+from quantrl_lab.environments.core.types import Actions
+from quantrl_lab.environments.stock.components.portfolio import StockPortfolio
 
 
 def test_portfolio_creation():

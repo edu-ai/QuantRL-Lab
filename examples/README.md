@@ -1,14 +1,57 @@
-# Data Source Examples
+# QuantRL-Lab Examples
 
-This folder contains example scripts demonstrating how to fetch data from different sources in QuantRL-Lab.
+This folder contains example scripts demonstrating key features of QuantRL-Lab.
 
-## Available Examples
+## Directory Structure
 
+- `data_sources/`: Scripts demonstrating how to fetch data from different providers.
+- `pipelines/`: End-to-end data processing pipelines using the `DataProcessor`.
+- `features/`: Examples focusing on specific features like technical indicators.
+- `core_concepts/`: Demonstrations of core architectural concepts like protocols.
+
+## Categories
+
+### Data Pipelines (`examples/pipelines/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `data_processing_basic.py` | **Start here!** Basic pipeline with indicators | No |
+| `data_processing_advanced.py` | Multiple indicators, custom params, train/test split | No |
+| `data_processing_param_grid.py` | Parameter grid search and 3-way splits | No |
+| `data_processing_date_split.py` | Date-based splitting and walk-forward validation | No |
+| `data_processing_with_sentiment.py` | Sentiment analysis integration | Yes (Alpaca) |
+| `data_processing_complete.py` | **All features showcase** - comprehensive example | Yes (Alpaca) |
+| `data_processing_file_config.py` | Loading configurations from YAML/JSON files | No |
+
+### Data Sources (`examples/data_sources/`)
 | Script | Data Source | API Key Required |
 |--------|-------------|------------------|
 | `fetch_yfinance_data.py` | Yahoo Finance | No |
 | `fetch_alpaca_data.py` | Alpaca | Yes |
 | `fetch_alphavantage_data.py` | Alpha Vantage | Yes |
+| `fetch_fmp_data.py` | Financial Modeling Prep | Yes |
+
+### Feature Examples (`examples/features/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `indicators_usage.py` | Technical indicator registry usage | No |
+| `indicator_selection_workflow.py` | Alpha-driven indicator selection via `AlphaSelector` | No |
+
+### Alpha Research (`examples/alpha_research/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `run_alpha_workflow.py` | Full alpha pipeline: selection, ensemble, robustness, HTML report | No |
+
+### Core Concepts (`examples/core_concepts/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `protocol_demonstration.py` | Data source protocol capabilities | No |
+
+### End-to-End Training (`examples/end_to_end/`)
+| Script | Description | API Key Required |
+|--------|-------------|------------------|
+| `single_asset/train_single_symbol.py` | Full pipeline: data → alpha → training → evaluation | No |
+| `single_asset/train_multi_symbol.py` | Multi-symbol vectorized training with async data fetch | Optional |
+| `single_asset/tune_single_symbol.py` | Hyperparameter tuning via Optuna (3-way split) | No |
 
 ## Setup
 
@@ -17,7 +60,7 @@ This folder contains example scripts demonstrating how to fetch data from differ
    uv sync
    ```
 
-2. Configure API keys (for Alpaca and Alpha Vantage):
+2. Configure API keys (for Alpaca, Alpha Vantage, and FMP):
    ```bash
    cp .env.example .env
    # Edit .env and add your API keys
@@ -25,55 +68,71 @@ This folder contains example scripts demonstrating how to fetch data from differ
 
 ## Running Examples
 
+### Data Processing Pipelines
+
+**Recommended order for learning:**
+
 ```bash
-# Yahoo Finance (no API key needed)
-uv run python examples/fetch_yfinance_data.py
+# 1. Start here - basic concepts
+uv run python examples/pipelines/data_processing_basic.py
 
-# Alpaca (requires API key)
-uv run python examples/fetch_alpaca_data.py
+# 2. Learn advanced features
+uv run python examples/pipelines/data_processing_advanced.py
 
-# Alpha Vantage (requires API key)
-uv run python examples/fetch_alphavantage_data.py
+# 3. Explore parameter variations
+uv run python examples/pipelines/data_processing_param_grid.py
+
+# 4. Master date-based splitting
+uv run python examples/pipelines/data_processing_date_split.py
+
+# 5. Add sentiment analysis (requires Alpaca API key)
+uv run python examples/pipelines/data_processing_with_sentiment.py
+
+# 6. See everything together (requires Alpaca API key)
+uv run python examples/pipelines/data_processing_complete.py
 ```
 
-## Data Source Comparison
+### Data Sources
 
-### Yahoo Finance
-- **Pros**: Free, no API key, includes fundamental data
-- **Cons**: Rate limits on intraday data (30 days max for 1-minute bars)
-- **Best for**: Quick prototyping, backtesting with daily data
+```bash
+# Yahoo Finance (no API key needed)
+uv run python examples/data_sources/fetch_yfinance_data.py
 
-### Alpaca
-- **Pros**: Real-time quotes/trades, news data, reliable historical data
-- **Cons**: Requires API key (free tier available)
-- **Best for**: Production systems, real-time applications
+# Alpaca (requires API key)
+uv run python examples/data_sources/fetch_alpaca_data.py
 
-### Alpha Vantage
-- **Pros**: Extensive fundamental data, macroeconomic indicators, news sentiment
-- **Cons**: Strict rate limits on free tier (25 calls/day, 1 req/sec); intraday data and `outputsize=full` require premium
-- **Best for**: Fundamental analysis, macro research (premium recommended for historical OHLCV)
+# Alpha Vantage (requires API key)
+uv run python examples/data_sources/fetch_alphavantage_data.py
 
-## Data Capabilities by Source
+# Financial Modeling Prep (requires API key)
+uv run python examples/data_sources/fetch_fmp_data.py
+```
 
-| Capability | Yahoo Finance | Alpaca | Alpha Vantage |
-|------------|---------------|--------|---------------|
-| Historical OHLCV | Yes | Yes | Yes (last 100 days free) |
-| Intraday Data | Limited | Yes | Premium only |
-| Fundamental Data | Yes | No | Yes |
-| News Data | No | Yes | Yes |
-| Macro Indicators | No | No | Yes |
-| Real-time Quotes | No | Yes | No |
-| Streaming | No | Yes* | No |
+### Feature & Alpha Research
 
-*Streaming is available but excluded from these examples.
+```bash
+# Technical indicator registry
+uv run python examples/features/indicators_usage.py
 
-## Alpha Vantage Free Tier Limitations
+# Alpha-driven indicator selection
+uv run python examples/features/indicator_selection_workflow.py
 
-The free tier has significant restrictions:
-- **25 requests/day** (not per minute)
-- **1 request/second** burst limit
-- **`outputsize=full`** (20+ years of data) requires premium
-- **Intraday data** (1min, 5min, etc.) requires premium
-- **Historical intraday with `month` parameter** requires premium
+# Full alpha research pipeline (selection, ensemble, robustness, HTML report)
+uv run python examples/alpha_research/run_alpha_workflow.py
 
-The `AlphaVantageDataLoader` automatically handles rate limiting (1.2s between requests) and defaults to `outputsize=compact` (last 100 data points) for free tier compatibility.
+# Protocol capabilities
+uv run python examples/core_concepts/protocol_demonstration.py
+```
+
+### End-to-End Training
+
+```bash
+# Single stock: data → alpha research → training → evaluation
+uv run python examples/end_to_end/single_asset/train_single_symbol.py
+
+# Multi-symbol: vectorized training across multiple stocks
+uv run python examples/end_to_end/single_asset/train_multi_symbol.py
+
+# Hyperparameter tuning with Optuna
+uv run python examples/end_to_end/single_asset/tune_single_symbol.py
+```

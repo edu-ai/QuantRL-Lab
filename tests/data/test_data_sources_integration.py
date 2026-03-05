@@ -37,14 +37,19 @@ def has_alpha_vantage_credentials() -> bool:
     return bool(os.environ.get("ALPHA_VANTAGE_API_KEY"))
 
 
+def has_fmp_credentials() -> bool:
+    """Check if FMP API key is available."""
+    return bool(os.environ.get("FMP_API_KEY"))
+
+
 class TestYfinanceIntegration:
-    """Integration tests for YfinanceDataloader using real API calls."""
+    """Integration tests for YFinanceDataLoader using real API calls."""
 
     def test_get_historical_ohlcv_data_single_symbol(self):
         """Test fetching historical data for a single symbol."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
 
@@ -68,9 +73,9 @@ class TestYfinanceIntegration:
 
     def test_get_historical_ohlcv_data_multiple_symbols(self):
         """Test fetching historical data for multiple symbols."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
 
@@ -92,9 +97,9 @@ class TestYfinanceIntegration:
 
     def test_get_fundamental_data(self):
         """Test fetching fundamental data."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         result = loader.get_fundamental_data("AAPL", frequency="quarterly")
 
         assert result is not None
@@ -104,9 +109,9 @@ class TestYfinanceIntegration:
 
     def test_data_types_are_correct(self):
         """Test that returned data has correct types."""
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=10)
 
@@ -132,10 +137,10 @@ class TestAlpacaIntegration:
 
     def test_get_historical_ohlcv_data_single_symbol(self):
         """Test fetching historical data for a single symbol."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=30)
 
         result = loader.get_historical_ohlcv_data(
@@ -156,10 +161,10 @@ class TestAlpacaIntegration:
 
     def test_get_historical_ohlcv_data_multiple_symbols(self):
         """Test fetching historical data for multiple symbols."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=30)
 
         result = loader.get_historical_ohlcv_data(
@@ -180,7 +185,7 @@ class TestAlpacaIntegration:
 
     def test_get_latest_quote(self):
         """Test fetching latest quote."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         result = loader.get_latest_quote("AAPL")
@@ -190,7 +195,7 @@ class TestAlpacaIntegration:
 
     def test_get_latest_trade(self):
         """Test fetching latest trade."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         result = loader.get_latest_trade("AAPL")
@@ -200,7 +205,7 @@ class TestAlpacaIntegration:
 
     def test_get_news_data(self):
         """Test fetching news data."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
         end_date = datetime.now()
@@ -219,7 +224,7 @@ class TestAlpacaIntegration:
 
     def test_is_connected(self):
         """Test connection status with valid credentials."""
-        from quantrl_lab.data.sources.alpaca import AlpacaDataLoader
+        from quantrl_lab.data.sources.alpaca_loader import AlpacaDataLoader
 
         loader = AlpacaDataLoader()
 
@@ -246,7 +251,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_historical_ohlcv_data_daily(self):
         """Test fetching daily historical data."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         end_date = datetime.now()
@@ -269,7 +274,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_company_overview(self):
         """Test fetching company overview."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         result = loader._get_company_overview("IBM")
@@ -281,7 +286,7 @@ class TestAlphaVantageIntegration:
 
     def test_get_real_gdp_data(self):
         """Test fetching real GDP data."""
-        from quantrl_lab.data.sources.alpha_vantage import AlphaVantageDataLoader
+        from quantrl_lab.data.sources.alpha_vantage_loader import AlphaVantageDataLoader
 
         loader = AlphaVantageDataLoader()
         result = loader._get_real_gdp_data(interval="annual")
@@ -301,7 +306,7 @@ class TestDataSourceRegistryIntegration:
         from quantrl_lab.data.source_registry import DataSourceRegistry
 
         registry = DataSourceRegistry()
-        end_date = datetime.now()
+        end_date = datetime.now() - timedelta(days=5)
         start_date = end_date - timedelta(days=10)
 
         result = registry.get_historical_ohlcv_data(
@@ -322,10 +327,10 @@ class TestIndicatorsWithRealData:
     def test_indicators_on_real_data(self):
         """Test that indicators work correctly on real market data."""
         from quantrl_lab.data.indicators.registry import IndicatorRegistry
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
         # Fetch real data
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=60)
 
@@ -349,9 +354,9 @@ class TestIndicatorsWithRealData:
     def test_rsi_values_are_valid_on_real_data(self):
         """Test RSI produces valid values on real data."""
         from quantrl_lab.data.indicators.registry import IndicatorRegistry
-        from quantrl_lab.data.sources.yfinance import YfinanceDataloader
+        from quantrl_lab.data.sources.yfinance_loader import YFinanceDataLoader
 
-        loader = YfinanceDataloader()
+        loader = YFinanceDataLoader()
         end_date = datetime.now()
         start_date = end_date - timedelta(days=60)
 
@@ -371,3 +376,157 @@ class TestIndicatorsWithRealData:
         rsi_values = result["RSI_14"].dropna()
         assert (rsi_values >= 0).all(), "RSI values should be >= 0"
         assert (rsi_values <= 100).all(), "RSI values should be <= 100"
+
+
+@pytest.mark.skipif(not has_fmp_credentials(), reason="FMP API key not available")
+class TestFMPIntegration:
+    """Integration tests for FMPDataSource using real API calls."""
+
+    def test_get_historical_sector_performance(self):
+        """Test fetching historical sector performance data."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        # Test with Energy sector
+        result = loader.get_historical_sector_performance("Energy")
+
+        assert result is not None, "FMP returned None - API may have changed"
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0, "No data returned for Energy sector"
+
+        # Check expected columns exist
+        assert "date" in result.columns, "Missing 'date' column"
+
+        # Verify date column is datetime type
+        assert pd.api.types.is_datetime64_any_dtype(result["date"]), "Date column should be datetime type"
+
+        # Check data is sorted by date
+        assert result["date"].is_monotonic_increasing, "Data should be sorted by date"
+
+    def test_get_historical_sector_performance_multiple_sectors(self):
+        """Test fetching data for multiple sectors."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        sectors = ["Technology", "Healthcare", "Financials"]
+
+        for sector in sectors:
+            result = loader.get_historical_sector_performance(sector)
+
+            assert result is not None, f"FMP returned None for sector: {sector}"
+            assert isinstance(result, pd.DataFrame)
+            # Note: Some sectors may have no data, so we don't assert len > 0
+
+    def test_get_historical_industry_performance(self):
+        """Test fetching historical industry performance data."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        # Test with Biotechnology industry
+        result = loader.get_historical_industry_performance("Biotechnology")
+
+        assert result is not None, "FMP returned None - API may have changed"
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0, "No data returned for Biotechnology industry"
+
+        # Check expected columns exist
+        assert "date" in result.columns, "Missing 'date' column"
+
+        # Verify date column is datetime type
+        assert pd.api.types.is_datetime64_any_dtype(result["date"]), "Date column should be datetime type"
+
+        # Check data is sorted by date
+        assert result["date"].is_monotonic_increasing, "Data should be sorted by date"
+
+    def test_get_historical_industry_performance_multiple_industries(self):
+        """Test fetching data for multiple industries."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        industries = ["Software", "Banks", "Pharmaceuticals"]
+
+        for industry in industries:
+            result = loader.get_historical_industry_performance(industry)
+
+            assert result is not None, f"FMP returned None for industry: {industry}"
+            assert isinstance(result, pd.DataFrame)
+            # Note: Some industries may have no data, so we don't assert len > 0
+
+    def test_sector_performance_data_structure(self):
+        """Test that sector performance data has expected structure."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+        result = loader.get_historical_sector_performance("Energy")
+
+        if not result.empty:
+            # Verify no null dates
+            assert result["date"].notna().all(), "Date column should not contain null values"
+
+            # Verify date range is reasonable (within last 10 years)
+            min_date = result["date"].min()
+            max_date = result["date"].max()
+            assert min_date < max_date, "Date range should be valid"
+
+    def test_industry_performance_data_structure(self):
+        """Test that industry performance data has expected
+        structure."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+        result = loader.get_historical_industry_performance("Biotechnology")
+
+        if not result.empty:
+            # Verify no null dates
+            assert result["date"].notna().all(), "Date column should not contain null values"
+
+            # Verify date range is reasonable
+            min_date = result["date"].min()
+            max_date = result["date"].max()
+            assert min_date < max_date, "Date range should be valid"
+
+    def test_get_company_profile(self):
+        """Test fetching company profile data."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        # Test with Apple
+        result = loader.get_company_profile("AAPL")
+
+        assert result is not None, "FMP returned None - API may have changed"
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0, "No data returned for AAPL"
+
+        # Check expected columns exist
+        expected_columns = ["symbol", "companyName", "sector", "industry"]
+        for col in expected_columns:
+            assert col in result.columns, f"Missing '{col}' column"
+
+        # Verify symbol matches
+        assert result.iloc[0]["symbol"] == "AAPL", "Symbol should match requested ticker"
+
+        # Verify sector and industry are populated
+        assert pd.notna(result.iloc[0]["sector"]), "Sector should be populated"
+        assert pd.notna(result.iloc[0]["industry"]), "Industry should be populated"
+
+    def test_get_company_profile_multiple_symbols(self):
+        """Test fetching company profiles for multiple symbols."""
+        from quantrl_lab.data.sources.fmp_loader import FMPDataSource
+
+        loader = FMPDataSource()
+
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+
+        for symbol in symbols:
+            result = loader.get_company_profile(symbol)
+
+            assert result is not None, f"FMP returned None for symbol: {symbol}"
+            assert isinstance(result, pd.DataFrame)
+            # Note: Some symbols may have no data, so we don't assert len > 0
+            if not result.empty:
+                assert result.iloc[0]["symbol"] == symbol

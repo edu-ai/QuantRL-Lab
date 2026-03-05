@@ -1,0 +1,29 @@
+# Indicator Configuration for Trend & Volatility Strategy
+# This file decouples strategy parameters from code.
+
+# You can provide a flat list or use the 'indicators' key
+indicators:
+  # Trend Indicators - using the elegant list-of-values syntax
+  - SMA:
+      window: [10, 20, 50, 200]
+  - EMA:
+      window: [12, 26]
+
+  # Momentum
+  - RSI:
+      window: [14, 21]
+  - MACD:
+      fast: 12
+      slow: 26
+      signal: 9
+
+  # Volatility - generating all combinations (2x2 = 4 sets)
+  - BB:
+      window: [10, 20]
+      num_std: [1.5, 2.0]
+
+  - ATR:
+      window: 14
+
+  # Volume (no parameters)
+  - OBV

@@ -5,8 +5,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 
-from quantrl_lab.experiments.backtesting.config import get_preset_config
-
 console = Console()
 
 
@@ -16,7 +14,6 @@ def train_model(
     config: Optional[Union[Dict, Any]] = None,
     total_timesteps: int = 10000,
     policy: str = "MlpPolicy",
-    preset: str = "default",
     verbose: int = 1,
     suppress_logs: bool = False,
     **kwargs,
@@ -30,7 +27,6 @@ def train_model(
         config: Configuration object or dictionary with algorithm parameters
         total_timesteps: Number of timesteps to train for
         policy: Policy architecture to use
-        preset: Configuration preset to use if no config provided
         verbose: Verbosity level
         suppress_logs: Whether to suppress training logs
         **kwargs: Additional parameters to pass to the algorithm
@@ -63,14 +59,6 @@ def train_model(
             else:
                 config_dict = config.__dict__.copy()  # It's a config object
             base_params.update(config_dict)
-        else:
-            # Use preset configuration
-            preset_config = get_preset_config(algo_class, preset)
-            if preset_config:
-                # Convert config object to dict
-                preset_config_dict = preset_config.__dict__.copy()
-                base_params.update(preset_config_dict)
-
         # Override with any additional kwargs
         base_params.update(kwargs)
 

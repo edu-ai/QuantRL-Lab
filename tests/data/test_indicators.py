@@ -6,14 +6,18 @@ import pytest
 
 from quantrl_lab.data.indicators.registry import IndicatorRegistry
 from quantrl_lab.data.indicators.technical import (
+    adx,
     atr,
     bollinger_bands,
+    cci,
     ema,
     macd,
+    mfi,
     on_balance_volume,
     rsi,
     sma,
     stochastic,
+    williams_r,
 )
 
 
@@ -82,6 +86,10 @@ class TestIndicatorRegistry:
         assert "BB" in indicators
         assert "STOCH" in indicators
         assert "OBV" in indicators
+        assert "WILLR" in indicators
+        assert "CCI" in indicators
+        assert "MFI" in indicators
+        assert "ADX" in indicators
 
     def test_get_returns_callable(self):
         """Test that get returns a callable function."""
@@ -417,3 +425,87 @@ class TestOBV:
         result = on_balance_volume(multi_symbol_df)
 
         assert "OBV" in result.columns
+
+
+class TestWilliamsR:
+    """Tests for Williams %R indicator."""
+
+    def test_willr_adds_column(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that Williams %R adds the expected column."""
+        result = williams_r(sample_ohlcv_df, window=14)
+        assert "WILLR_14" in result.columns
+
+    def test_willr_values_in_range(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that Williams %R values are between -100 and 0."""
+        result = williams_r(sample_ohlcv_df, window=14)
+        valid_willr = result["WILLR_14"].dropna()
+
+        assert (valid_willr >= -100).all()
+        assert (valid_willr <= 0).all()
+
+    def test_willr_with_multiple_symbols(self, multi_symbol_df: pd.DataFrame):
+        """Test Williams %R with multiple symbols."""
+        result = williams_r(multi_symbol_df, window=14)
+        assert "WILLR_14" in result.columns
+
+
+class TestCCI:
+    """Tests for Commodity Channel Index indicator."""
+
+    def test_cci_adds_column(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that CCI adds the expected column."""
+        result = cci(sample_ohlcv_df, window=20)
+        assert "CCI_20" in result.columns
+
+    def test_cci_with_multiple_symbols(self, multi_symbol_df: pd.DataFrame):
+        """Test CCI with multiple symbols."""
+        result = cci(multi_symbol_df, window=20)
+        assert "CCI_20" in result.columns
+
+
+class TestMFI:
+    """Tests for Money Flow Index indicator."""
+
+    def test_mfi_adds_column(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that MFI adds the expected column."""
+        result = mfi(sample_ohlcv_df, window=14)
+        assert "MFI_14" in result.columns
+
+    def test_mfi_values_in_range(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that MFI values are between 0 and 100."""
+        result = mfi(sample_ohlcv_df, window=14)
+        valid_mfi = result["MFI_14"].dropna()
+
+        assert (valid_mfi >= 0).all()
+        assert (valid_mfi <= 100).all()
+
+    def test_mfi_with_multiple_symbols(self, multi_symbol_df: pd.DataFrame):
+        """Test MFI with multiple symbols."""
+        result = mfi(multi_symbol_df, window=14)
+        assert "MFI_14" in result.columns
+
+
+class TestADX:
+    """Tests for Average Directional Index indicator."""
+
+    def test_adx_adds_columns(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that ADX adds the expected columns."""
+        result = adx(sample_ohlcv_df, window=14)
+        assert "ADX_14" in result.columns
+        assert "ADX_pos_14" in result.columns
+        assert "ADX_neg_14" in result.columns
+
+    def test_adx_values_in_range(self, sample_ohlcv_df: pd.DataFrame):
+        """Test that ADX values are between 0 and 100."""
+        result = adx(sample_ohlcv_df, window=14)
+        valid_adx = result["ADX_14"].dropna()
+
+        assert (valid_adx >= 0).all()
+        assert (valid_adx <= 100).all()
+
+    def test_adx_with_multiple_symbols(self, multi_symbol_df: pd.DataFrame):
+        """Test ADX with multiple symbols."""
+        result = adx(multi_symbol_df, window=14)
+        assert "ADX_14" in result.columns
+        assert "ADX_pos_14" in result.columns
+        assert "ADX_neg_14" in result.columns

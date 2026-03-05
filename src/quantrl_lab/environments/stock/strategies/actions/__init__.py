@@ -1,1 +1,2 @@
-from .standard_market_action_strategy import StandardMarketActionStrategy
+from .standard import StandardActionStrategy
+from .time_in_force import TimeInForceActionStrategy
